@@ -221,6 +221,7 @@ export default function MenuEditor() {
   const [layout, setLayout] = useState(DEFAULT_LAYOUT);
 
   const [userReady, setUserReady] = useState(false);
+  const [userId, setUserId] = useState(null);
 
   // ✅ “편집 모드”
   const [edit, setEdit] = useState(false);
@@ -265,12 +266,17 @@ export default function MenuEditor() {
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
 
+  const pinStorageKey = useMemo(() => {
+    return userId ? `${PIN_KEY}__${userId}` : PIN_KEY;
+  }, [userId]);
+
   useEffect(() => {
     const current = getCurrentUser();
     if (!current) {
       router.replace('/login');
       return;
     }
+    setUserId(current);
     setUserReady(true);
   }, [router]);
 
@@ -367,13 +373,13 @@ export default function MenuEditor() {
       }
     })();
 
-    // ✅ PIN 로드/초기화
+    // ✅ PIN 로드/초기화 (사용자별)
     try {
-      const stored = localStorage.getItem(PIN_KEY);
+      const stored = localStorage.getItem(pinStorageKey);
       if (stored && typeof stored === 'string') {
         setPin(stored);
       } else {
-        localStorage.setItem(PIN_KEY, DEFAULT_PIN);
+        localStorage.setItem(pinStorageKey, DEFAULT_PIN);
         setPin(DEFAULT_PIN);
       }
     } catch {
@@ -385,7 +391,7 @@ export default function MenuEditor() {
       const saved = localStorage.getItem(LANG_KEY);
       if (saved === 'ko' || saved === 'en') setLang(saved);
     } catch {}
-  }, [userReady]);
+  }, [userReady, pinStorageKey]);
 
   // ✅ 보기 모드에서 텍스트 길게 눌러도 선택/터치 콜아웃이 뜨지 않도록 body 단위 차단
   useEffect(() => {
@@ -740,7 +746,7 @@ export default function MenuEditor() {
     }
 
     try {
-      localStorage.setItem(PIN_KEY, np);
+      localStorage.setItem(pinStorageKey, np);
     } catch {}
     setPin(np);
     setSettingsMsg(lang === 'ko' ? '비밀번호가 변경되었습니다.' : 'PIN has been updated.');
