@@ -410,21 +410,6 @@ export default function LoginPage() {
               >
                 로그인으로 돌아가기
               </button>
-              <button
-                type="button"
-                onClick={() => setActiveRecovery('password')}
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: '10px',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #1f6feb, #5ce1e6)',
-                  color: '#0a0c12',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                비밀번호 찾기
-              </button>
             </div>
           </div>
         )}
@@ -585,21 +570,6 @@ export default function LoginPage() {
                 }}
               >
                 로그인으로 돌아가기
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveRecovery('id')}
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: '10px',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #1f6feb, #5ce1e6)',
-                  color: '#0a0c12',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                아이디 찾기
               </button>
             </div>
           </div>
