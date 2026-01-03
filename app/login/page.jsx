@@ -189,10 +189,14 @@ export default function LoginPage() {
 
     try {
       const email = signUpForm.email.trim();
+      // Supabase가 매직링크 대신 숫자 OTP만 보내도록 email 채널을 명시
       const { error } = await supabase.auth.signInWithOtp({
         email,
-        // 리다이렉트 링크 대신 6자리 코드 메일을 보내도록 OTP 채널만 사용
-        options: { shouldCreateUser: true, emailRedirectTo: undefined },
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: undefined,
+          channel: 'email',
+        },
       });
 
       if (error) {
