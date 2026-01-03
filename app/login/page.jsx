@@ -18,10 +18,8 @@ export default function LoginPage() {
 
   const [idRecovery, setIdRecovery] = useState({
     email: '',
-    code: '',
-    sentCode: '',
-    verified: false,
     message: '',
+    sending: false,
   });
 
   const [passwordRecovery, setPasswordRecovery] = useState({
@@ -165,27 +163,35 @@ export default function LoginPage() {
     }
   };
 
-  const generateCode = () => Math.floor(100000 + Math.random() * 900000).toString();
+  const handleSendIdCode = async () => {
+    if (!idRecovery.email) {
+      setIdRecovery((prev) => ({ ...prev, message: '이메일을 입력해 주세요.' }));
+      return;
+    }
 
-  const handleSendIdCode = () => {
-    const newCode = generateCode();
-    setIdRecovery((prev) => ({
-      ...prev,
-      sentCode: newCode,
-      verified: false,
-      message: `테스트용 인증번호 ${newCode}를(을) 전송했습니다.`,
-    }));
-  };
+    setIdRecovery((prev) => ({ ...prev, sending: true, message: '' }));
 
-  const handleVerifyIdCode = () => {
-    setIdRecovery((prev) => ({
-      ...prev,
-      verified: prev.code === prev.sentCode && prev.code !== '',
-      message:
-        prev.code === prev.sentCode && prev.code !== ''
-          ? '인증 완료! (실제 서비스에서는 이메일로 사용자 계정 조회 로직이 필요합니다)'
-          : '인증번호를 다시 확인해 주세요.',
-    }));
+    try {
+      const redirectTo = `${window.location.origin}/login`;
+      const { error } = await supabase.auth.signInWithOtp({
+        email: idRecovery.email,
+        options: { emailRedirectTo: redirectTo },
+      });
+
+      setIdRecovery((prev) => ({
+        ...prev,
+        sending: false,
+        message: error
+          ? error.message
+          : '입력하신 이메일로 인증 메일을 보냈습니다. 메일에서 인증 버튼을 눌러 주세요.',
+      }));
+    } catch (e) {
+      setIdRecovery((prev) => ({
+        ...prev,
+        sending: false,
+        message: '메일 전송 중 오류가 발생했습니다.',
+      }));
+    }
   };
 
   const handleSendPasswordReset = async () => {
@@ -536,26 +542,11 @@ export default function LoginPage() {
               />
             </label>
 
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input
-                type="text"
-                value={idRecovery.code}
-                onChange={(event) => setIdRecovery((prev) => ({ ...prev, code: event.target.value }))}
-                placeholder="인증번호 입력"
-                style={{
-                  flex: 1,
-                  padding: '12px 14px',
-                  borderRadius: '10px',
-                  border: '1px solid #242938',
-                  background: 'rgba(13, 15, 24, 0.85)',
-                  color: '#f4f4f4',
-                  outline: 'none',
-                  fontSize: '15px',
-                }}
-              />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <button
                 type="button"
                 onClick={handleSendIdCode}
+                disabled={idRecovery.sending}
                 style={{
                   padding: '12px 14px',
                   borderRadius: '10px',
@@ -563,39 +554,16 @@ export default function LoginPage() {
                   background: 'rgba(92, 225, 230, 0.15)',
                   color: '#5ce1e6',
                   fontWeight: 700,
-                  cursor: 'pointer',
-                  minWidth: '120px',
+                  cursor: idRecovery.sending ? 'not-allowed' : 'pointer',
                 }}
               >
-                인증번호 보내기
+                {idRecovery.sending ? '메일 전송 중...' : '인증 메일 보내기'}
               </button>
-              <button
-                type="button"
-                onClick={handleVerifyIdCode}
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: '10px',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #1f6feb, #5ce1e6)',
-                  color: '#0a0c12',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  minWidth: '96px',
-                }}
-              >
-                인증
-              </button>
+
+              {idRecovery.message && (
+                <div style={{ color: '#f1b3b3', fontSize: '14px' }}>{idRecovery.message}</div>
+              )}
             </div>
-
-            {idRecovery.verified && (
-              <div style={{ color: '#5ce1e6', fontWeight: 700 }}>
-                인증 완료! (실제 서비스에서는 이메일로 계정 조회 로직 필요)
-              </div>
-            )}
-
-            {idRecovery.message && !idRecovery.verified && (
-              <div style={{ color: '#f1b3b3', fontSize: '14px' }}>{idRecovery.message}</div>
-            )}
 
             <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '4px' }}>
               <button
