@@ -3,11 +3,17 @@ import Image from 'next/image';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { setCurrentUser } from '@/lib/session';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function LoginPage() {
   const router = useRouter();
   const [form, setForm] = useState({ id: '', password: '' });
   const [activeRecovery, setActiveRecovery] = useState(null);
+
+  // ✅ 로그인 메시지/로딩 추가
+  const [loginMessage, setLoginMessage] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
   const [idRecovery, setIdRecovery] = useState({
     email: '',
     code: '',
@@ -15,6 +21,7 @@ export default function LoginPage() {
     verified: false,
     message: '',
   });
+
   const [passwordRecovery, setPasswordRecovery] = useState({
     id: '',
     email: '',
@@ -25,8 +32,13 @@ export default function LoginPage() {
     message: '',
   });
 
+  // ✅ 데모 계정: Supabase는 email/password가 기본이므로
+  // "test" 같은 id는 로그인이 안 될 수 있어요.
+  // 일단 너가 Supabase에 만든 테스트 계정 이메일로 바꿔 사용하세요.
   const fillDemoAccount = () => {
-    setForm({ id: 'test', password: 'test1' });
+    // 예: setForm({ id: 'test@example.com', password: 'test1' });
+    setForm({ id: 'test@example.com', password: 'test1' });
+    setLoginMessage('데모 계정은 Supabase에 동일한 이메일/비밀번호로 만들어져 있어야 로그인됩니다.');
   };
 
   const handleChange = (event) => {
@@ -34,10 +46,42 @@ export default function LoginPage() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (event) => {
+  // ✅✅✅ 여기 핵심: Supabase 로그인으로 교체
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    setCurrentUser(form.id);
-    router.push('/intro');
+    setLoginMessage('');
+    setIsLoggingIn(true);
+
+    try {
+      // Supabase 기본은 email/password
+      const email = (form.id || '').trim();
+      const password = form.password;
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        setLoginMessage(error.message);
+        return;
+      }
+
+      // ✅ 로그인 성공: Supabase user 객체
+      const user = data?.user;
+
+      // ✅ 기존 앱이 local session을 기대하는 구조라면 user.id를 넣어 호환 유지
+      if (user?.id) setCurrentUser(user.id);
+
+      // (선택) 필요하면 이메일도 저장할 수 있음
+      // localStorage.setItem('CURRENT_USER_EMAIL', user?.email || '');
+
+      router.push('/intro');
+    } catch (e) {
+      setLoginMessage('로그인 중 오류가 발생했습니다.');
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
 
   const generateCode = () => Math.floor(100000 + Math.random() * 900000).toString();
@@ -58,7 +102,7 @@ export default function LoginPage() {
       verified: prev.code === prev.sentCode && prev.code !== '',
       message:
         prev.code === prev.sentCode && prev.code !== ''
-          ? '인증 완료! 당신의 ID는 000 입니다.'
+          ? '인증 완료! (실제 서비스에서는 이메일로 사용자 계정 조회 로직이 필요합니다)'
           : '인증번호를 다시 확인해 주세요.',
     }));
   };
@@ -84,6 +128,8 @@ export default function LoginPage() {
     }));
   };
 
+  // ⚠️ 현재 비밀번호 재설정은 “프론트 테스트용” 로직임.
+  // Supabase 실제 비밀번호 재설정은 supabase.auth.resetPasswordForEmail / updateUser 등으로 바꿔야 함.
   const handlePasswordReset = (event) => {
     event.preventDefault();
     if (!passwordRecovery.verified) {
@@ -96,7 +142,7 @@ export default function LoginPage() {
 
     setPasswordRecovery((prev) => ({
       ...prev,
-      message: '새 비밀번호가 설정되었습니다.',
+      message: '새 비밀번호가 설정되었습니다. (실제 서비스에서는 Supabase reset flow로 교체 필요)',
     }));
   };
 
@@ -158,14 +204,14 @@ export default function LoginPage() {
           <>
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#d8dce5' }}>
-                아이디
+                아이디(이메일)
                 <input
                   type="text"
                   name="id"
                   value={form.id}
                   onChange={handleChange}
                   required
-                  placeholder="아이디를 입력하세요"
+                  placeholder="이메일을 입력하세요"
                   style={{
                     padding: '12px 14px',
                     borderRadius: '10px',
@@ -201,30 +247,32 @@ export default function LoginPage() {
 
               <button
                 type="submit"
+                disabled={isLoggingIn}
                 style={{
                   marginTop: '4px',
                   padding: '12px 14px',
                   borderRadius: '10px',
                   border: 'none',
-                  background: 'linear-gradient(135deg, #1f6feb, #5ce1e6)',
+                  background: isLoggingIn
+                    ? 'rgba(92, 225, 230, 0.25)'
+                    : 'linear-gradient(135deg, #1f6feb, #5ce1e6)',
                   color: '#0a0c12',
                   fontWeight: 700,
                   fontSize: '16px',
-                  cursor: 'pointer',
-                  boxShadow: '0 8px 20px rgba(31, 111, 235, 0.35)',
+                  cursor: isLoggingIn ? 'not-allowed' : 'pointer',
+                  boxShadow: isLoggingIn ? 'none' : '0 8px 20px rgba(31, 111, 235, 0.35)',
                   transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-                }}
-                onMouseDown={(event) => {
-                  event.currentTarget.style.transform = 'translateY(1px)';
-                  event.currentTarget.style.boxShadow = '0 4px 12px rgba(31, 111, 235, 0.35)';
-                }}
-                onMouseUp={(event) => {
-                  event.currentTarget.style.transform = 'translateY(0)';
-                  event.currentTarget.style.boxShadow = '0 8px 20px rgba(31, 111, 235, 0.35)';
+                  opacity: isLoggingIn ? 0.85 : 1,
                 }}
               >
-                로그인
+                {isLoggingIn ? '로그인 중...' : '로그인'}
               </button>
+
+              {!!loginMessage && (
+                <div style={{ marginTop: '6px', color: '#f1b3b3', fontSize: '14px' }}>
+                  {loginMessage}
+                </div>
+              )}
             </form>
 
             <div
@@ -244,7 +292,9 @@ export default function LoginPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
                 <div>
                   <strong style={{ display: 'block', marginBottom: '4px' }}>데모 계정</strong>
-                  <span style={{ color: '#b3e7f3' }}>아이디: test / 비밀번호: test1</span>
+                  <span style={{ color: '#b3e7f3' }}>
+                    (예시) 이메일: test@example.com / 비밀번호: test1
+                  </span>
                 </div>
                 <button
                   type="button"
@@ -321,6 +371,7 @@ export default function LoginPage() {
             }}
           >
             <div style={{ color: '#d8dce5', fontWeight: 700, textAlign: 'center' }}>아이디 찾기</div>
+
             <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#d8dce5' }}>
               이메일 주소
               <input
@@ -339,6 +390,7 @@ export default function LoginPage() {
                 }}
               />
             </label>
+
             <div style={{ display: 'flex', gap: '8px' }}>
               <input
                 type="text"
@@ -389,12 +441,17 @@ export default function LoginPage() {
                 인증
               </button>
             </div>
+
             {idRecovery.verified && (
-              <div style={{ color: '#5ce1e6', fontWeight: 700 }}>인증 완료! 당신의 ID는 000 입니다.</div>
+              <div style={{ color: '#5ce1e6', fontWeight: 700 }}>
+                인증 완료! (실제 서비스에서는 이메일로 계정 조회 로직 필요)
+              </div>
             )}
+
             {idRecovery.message && !idRecovery.verified && (
               <div style={{ color: '#f1b3b3', fontSize: '14px' }}>{idRecovery.message}</div>
             )}
+
             <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '4px' }}>
               <button
                 type="button"
@@ -424,6 +481,7 @@ export default function LoginPage() {
             }}
           >
             <div style={{ color: '#d8dce5', fontWeight: 700, textAlign: 'center' }}>비밀번호 찾기</div>
+
             <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#d8dce5' }}>
               아이디
               <input
@@ -442,6 +500,7 @@ export default function LoginPage() {
                 }}
               />
             </label>
+
             <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#d8dce5' }}>
               이메일 주소
               <input
@@ -460,6 +519,7 @@ export default function LoginPage() {
                 }}
               />
             </label>
+
             <div style={{ display: 'flex', gap: '8px' }}>
               <input
                 type="text"
@@ -510,6 +570,7 @@ export default function LoginPage() {
                 인증
               </button>
             </div>
+
             {passwordRecovery.verified && (
               <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#d8dce5' }}>
                 새 비밀번호
@@ -532,6 +593,7 @@ export default function LoginPage() {
                 />
               </label>
             )}
+
             <button
               type="button"
               onClick={handlePasswordReset}
@@ -549,13 +611,13 @@ export default function LoginPage() {
             >
               새 비밀번호 설정
             </button>
+
             {passwordRecovery.message && (
-              <div
-                style={{ color: passwordRecovery.verified ? '#5ce1e6' : '#f1b3b3', fontSize: '14px' }}
-              >
+              <div style={{ color: passwordRecovery.verified ? '#5ce1e6' : '#f1b3b3', fontSize: '14px' }}>
                 {passwordRecovery.message}
               </div>
             )}
+
             <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '4px' }}>
               <button
                 type="button"
