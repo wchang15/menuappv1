@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { KEYS, loadBlob, saveBlob } from '@/lib/storage';
+import { getCurrentUser } from '@/lib/session';
 
 export default function IntroPlayer() {
   const router = useRouter();
@@ -12,10 +13,21 @@ export default function IntroPlayer() {
   const [videoUrl, setVideoUrl] = useState(null);
   const [muted, setMuted] = useState(true); // 처음엔 음소거
   const [loading, setLoading] = useState(true);
+  const [userReady, setUserReady] = useState(false);
+
+  useEffect(() => {
+    const current = getCurrentUser();
+    if (!current) {
+      router.replace('/login');
+      return;
+    }
+    setUserReady(true);
+  }, [router]);
 
 
   // 저장된 비디오 로드
   useEffect(() => {
+    if (!userReady) return;
     (async () => {
       try {
         const blob = await loadBlob(KEYS.INTRO_VIDEO);
@@ -24,7 +36,7 @@ export default function IntroPlayer() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [userReady]);
 
   // blob -> objectURL
   useEffect(() => {
