@@ -1,6 +1,6 @@
 'use client';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { setCurrentUser } from '@/lib/session';
 import { supabase } from '@/lib/supabaseClient';
@@ -8,29 +8,81 @@ import { supabase } from '@/lib/supabaseClient';
 export default function LoginPage() {
   const router = useRouter();
   const [form, setForm] = useState({ id: '', password: '' });
-  const [activeRecovery, setActiveRecovery] = useState(null);
+  const [signUpForm, setSignUpForm] = useState({
+    email: '',
+    password: '',
+    confirm: '',
+    otp: '',
+  });
+  const [activeView, setActiveView] = useState('login');
+  const [hasRecoverySession, setHasRecoverySession] = useState(false);
 
   // ✅ 로그인 메시지/로딩 추가
   const [loginMessage, setLoginMessage] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-
-  const [idRecovery, setIdRecovery] = useState({
-    email: '',
-    code: '',
-    sentCode: '',
+  const [isSigningUp, setIsSigningUp] = useState(false);
+  const [signUpMessage, setSignUpMessage] = useState('');
+  const [otpState, setOtpState] = useState({
+    sending: false,
+    sent: false,
+    verifying: false,
     verified: false,
-    message: '',
   });
 
   const [passwordRecovery, setPasswordRecovery] = useState({
-    id: '',
     email: '',
-    code: '',
-    sentCode: '',
-    verified: false,
     newPassword: '',
     message: '',
+    sending: false,
+    updating: false,
   });
+
+  // Supabase password recovery 링크로 돌아온 경우 해시 파싱
+  useEffect(() => {
+    const hash = typeof window !== 'undefined' ? window.location.hash : '';
+    if (hash.includes('type=recovery')) {
+      const params = new URLSearchParams(hash.replace('#', ''));
+      const access_token = params.get('access_token');
+      const refresh_token = params.get('refresh_token');
+
+      if (access_token && refresh_token) {
+        supabase.auth
+          .setSession({ access_token, refresh_token })
+          .then(({ data, error }) => {
+            if (!error && data?.session?.user) {
+              setCurrentUser(data.session.user.id);
+              setHasRecoverySession(true);
+              setActiveView('password');
+              setPasswordRecovery((prev) => ({
+                ...prev,
+                email: data.session.user.email || prev.email,
+                message: '새 비밀번호를 설정해 주세요.',
+              }));
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user?.id) setCurrentUser(session.user.id);
+      if (event === 'PASSWORD_RECOVERY' && session?.user) {
+        setHasRecoverySession(true);
+        setActiveView('password');
+        setPasswordRecovery((prev) => ({
+          ...prev,
+          email: session.user.email || prev.email,
+          message: '새 비밀번호를 설정해 주세요.',
+        }));
+      }
+    });
+
+    return () => {
+      authListener?.subscription?.unsubscribe();
+    };
+  }, []);
 
   // ✅ 데모 계정: Supabase는 email/password가 기본이므로
   // "test" 같은 id는 로그인이 안 될 수 있어요.
@@ -84,66 +136,202 @@ export default function LoginPage() {
     }
   };
 
-  const generateCode = () => Math.floor(100000 + Math.random() * 900000).toString();
-
-  const handleSendIdCode = () => {
-    const newCode = generateCode();
-    setIdRecovery((prev) => ({
-      ...prev,
-      sentCode: newCode,
-      verified: false,
-      message: `테스트용 인증번호 ${newCode}를(을) 전송했습니다.`,
-    }));
-  };
-
-  const handleVerifyIdCode = () => {
-    setIdRecovery((prev) => ({
-      ...prev,
-      verified: prev.code === prev.sentCode && prev.code !== '',
-      message:
-        prev.code === prev.sentCode && prev.code !== ''
-          ? '인증 완료! (실제 서비스에서는 이메일로 사용자 계정 조회 로직이 필요합니다)'
-          : '인증번호를 다시 확인해 주세요.',
-    }));
-  };
-
-  const handleSendPasswordCode = () => {
-    const newCode = generateCode();
-    setPasswordRecovery((prev) => ({
-      ...prev,
-      sentCode: newCode,
-      verified: false,
-      message: `테스트용 인증번호 ${newCode}를(을) 전송했습니다.`,
-    }));
-  };
-
-  const handleVerifyPasswordCode = () => {
-    setPasswordRecovery((prev) => ({
-      ...prev,
-      verified: prev.code === prev.sentCode && prev.code !== '',
-      message:
-        prev.code === prev.sentCode && prev.code !== ''
-          ? '인증 완료! 새 비밀번호를 입력해 주세요.'
-          : '인증번호를 다시 확인해 주세요.',
-    }));
-  };
-
-  // ⚠️ 현재 비밀번호 재설정은 “프론트 테스트용” 로직임.
-  // Supabase 실제 비밀번호 재설정은 supabase.auth.resetPasswordForEmail / updateUser 등으로 바꿔야 함.
-  const handlePasswordReset = (event) => {
+  const handleSignUp = async (event) => {
     event.preventDefault();
-    if (!passwordRecovery.verified) {
+    setSignUpMessage('');
+
+    if (!signUpForm.email || !signUpForm.password || !signUpForm.confirm) {
+      setSignUpMessage('모든 필드를 입력해 주세요.');
+      return;
+    }
+
+    if (!otpState.verified) {
+      setSignUpMessage('이메일 인증을 완료해 주세요.');
+      return;
+    }
+
+    if (signUpForm.password !== signUpForm.confirm) {
+      setSignUpMessage('비밀번호와 비밀번호 확인이 일치하지 않습니다.');
+      return;
+    }
+
+    setIsSigningUp(true);
+
+    try {
+      const password = signUpForm.password;
+
+      const { data, error } = await supabase.auth.updateUser({ password });
+
+      if (error) {
+        setSignUpMessage(error.message);
+        return;
+      }
+
+      if (data?.user?.id) setCurrentUser(data.user.id);
+
+      setSignUpMessage('회원가입이 완료되었습니다!');
+      router.push('/intro');
+    } catch (e) {
+      setSignUpMessage('회원가입 중 오류가 발생했습니다.');
+    } finally {
+      setIsSigningUp(false);
+    }
+  };
+
+  const handleSendEmailOtp = async () => {
+    setSignUpMessage('');
+    if (!signUpForm.email) {
+      setSignUpMessage('이메일을 입력해 주세요.');
+      return;
+    }
+
+    setOtpState((prev) => ({ ...prev, sending: true }));
+
+    try {
+      const email = signUpForm.email.trim();
+      // Supabase가 매직링크 대신 숫자 OTP만 보내도록 email 채널을 명시
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: undefined,
+          channel: 'email',
+        },
+      });
+
+      if (error) {
+        setSignUpMessage(error.message);
+        setOtpState((prev) => ({ ...prev, sending: false, sent: false }));
+        return;
+      }
+
+      setOtpState((prev) => ({ ...prev, sending: false, sent: true }));
+      setSignUpMessage('이메일로 6자리 인증번호를 보냈습니다. 받은 번호를 입력해 주세요.');
+    } catch (e) {
+      setSignUpMessage('인증 메일 전송 중 오류가 발생했습니다.');
+      setOtpState((prev) => ({ ...prev, sending: false, sent: false }));
+    }
+  };
+
+  const handleVerifyEmailOtp = async () => {
+    setSignUpMessage('');
+
+    if (!signUpForm.email) {
+      setSignUpMessage('이메일을 입력해 주세요.');
+      return;
+    }
+
+    if (!signUpForm.otp.trim()) {
+      setSignUpMessage('이메일로 받은 인증번호를 입력해 주세요.');
+      return;
+    }
+
+    setOtpState((prev) => ({ ...prev, verifying: true }));
+
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: signUpForm.email.trim(),
+        token: signUpForm.otp.trim(),
+        // 이메일 OTP 코드를 확인 (매직링크가 아닌 숫자 코드 기반)
+        type: 'email',
+      });
+
+      if (error) {
+        setSignUpMessage(error.message);
+        setOtpState((prev) => ({ ...prev, verifying: false, verified: false }));
+        return;
+      }
+
+      if (data?.session?.user?.id) {
+        setCurrentUser(data.session.user.id);
+      }
+
+      setOtpState((prev) => ({ ...prev, verifying: false, verified: true }));
+      setSignUpMessage('이메일 인증 완료! 비밀번호를 설정해 회원가입을 마무리해 주세요.');
+    } catch (e) {
+      setSignUpMessage('인증 중 오류가 발생했습니다.');
+      setOtpState((prev) => ({ ...prev, verifying: false, verified: false }));
+    }
+  };
+
+  const handleSendPasswordReset = async () => {
+    if (!passwordRecovery.email) {
       setPasswordRecovery((prev) => ({
         ...prev,
-        message: '먼저 이메일 인증을 완료해 주세요.',
+        message: '이메일을 입력해 주세요.',
       }));
       return;
     }
 
-    setPasswordRecovery((prev) => ({
-      ...prev,
-      message: '새 비밀번호가 설정되었습니다. (실제 서비스에서는 Supabase reset flow로 교체 필요)',
-    }));
+    setPasswordRecovery((prev) => ({ ...prev, sending: true, message: '' }));
+    try {
+      const redirectTo = `${window.location.origin}/login`; // reset 완료 후 돌아올 곳
+      const { error } = await supabase.auth.resetPasswordForEmail(passwordRecovery.email, {
+        redirectTo,
+      });
+
+      setPasswordRecovery((prev) => ({
+        ...prev,
+        sending: false,
+        message: error
+          ? error.message
+          : '비밀번호 재설정 링크를 이메일로 전송했습니다. 메일을 확인해 주세요.',
+      }));
+    } catch (e) {
+      setPasswordRecovery((prev) => ({
+        ...prev,
+        sending: false,
+        message: '메일 전송 중 오류가 발생했습니다.',
+      }));
+    }
+  };
+
+  const handlePasswordReset = async (event) => {
+    event.preventDefault();
+    if (!hasRecoverySession) {
+      setPasswordRecovery((prev) => ({
+        ...prev,
+        message: '이메일 링크를 통해 들어온 후 새 비밀번호를 설정할 수 있습니다.',
+      }));
+      return;
+    }
+    if (!passwordRecovery.newPassword) {
+      setPasswordRecovery((prev) => ({
+        ...prev,
+        message: '새 비밀번호를 입력해 주세요.',
+      }));
+      return;
+    }
+
+    setPasswordRecovery((prev) => ({ ...prev, updating: true, message: '' }));
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: passwordRecovery.newPassword,
+      });
+
+      if (error) {
+        setPasswordRecovery((prev) => ({
+          ...prev,
+          updating: false,
+          message: error.message,
+        }));
+        return;
+      }
+
+      setPasswordRecovery((prev) => ({
+        ...prev,
+        updating: false,
+        message: '비밀번호가 변경되었습니다. 새 비밀번호로 로그인하세요.',
+      }));
+      router.push('/intro');
+    } catch (e) {
+      setPasswordRecovery((prev) => ({
+        ...prev,
+        updating: false,
+        message: '비밀번호 변경 중 오류가 발생했습니다.',
+      }));
+    }
   };
 
   return (
@@ -200,7 +388,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {!activeRecovery && (
+        {activeView === 'login' && (
           <>
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#d8dce5' }}>
@@ -245,28 +433,32 @@ export default function LoginPage() {
                 />
               </label>
 
-              <button
-                type="submit"
-                disabled={isLoggingIn}
-                style={{
-                  marginTop: '4px',
-                  padding: '12px 14px',
-                  borderRadius: '10px',
-                  border: 'none',
-                  background: isLoggingIn
-                    ? 'rgba(92, 225, 230, 0.25)'
-                    : 'linear-gradient(135deg, #1f6feb, #5ce1e6)',
-                  color: '#0a0c12',
-                  fontWeight: 700,
-                  fontSize: '16px',
-                  cursor: isLoggingIn ? 'not-allowed' : 'pointer',
-                  boxShadow: isLoggingIn ? 'none' : '0 8px 20px rgba(31, 111, 235, 0.35)',
-                  transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-                  opacity: isLoggingIn ? 0.85 : 1,
-                }}
-              >
-                {isLoggingIn ? '로그인 중...' : '로그인'}
-              </button>
+              <div>
+                <button
+                  type="submit"
+                  disabled={isLoggingIn}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: isLoggingIn
+                      ? 'rgba(92, 225, 230, 0.25)'
+                      : 'linear-gradient(135deg, #1f6feb, #5ce1e6)',
+                    color: '#0a0c12',
+                    fontWeight: 700,
+                    fontSize: '16px',
+                    cursor: isLoggingIn ? 'not-allowed' : 'pointer',
+                    boxShadow: isLoggingIn
+                      ? 'none'
+                      : '0 8px 20px rgba(31, 111, 235, 0.35)',
+                    transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                    opacity: isLoggingIn ? 0.85 : 1,
+                  }}
+                >
+                  {isLoggingIn ? '로그인 중...' : '로그인'}
+                </button>
+              </div>
 
               {!!loginMessage && (
                 <div style={{ marginTop: '6px', color: '#f1b3b3', fontSize: '14px' }}>
@@ -326,7 +518,7 @@ export default function LoginPage() {
             >
               <button
                 type="button"
-                onClick={() => setActiveRecovery('id')}
+                onClick={() => setActiveView('signup')}
                 style={{
                   color: 'inherit',
                   textDecoration: 'none',
@@ -338,12 +530,12 @@ export default function LoginPage() {
                   fontFamily: 'inherit',
                 }}
               >
-                아이디 찾기
+                회원가입
               </button>
               <span aria-hidden="true">|</span>
               <button
                 type="button"
-                onClick={() => setActiveRecovery('password')}
+                onClick={() => setActiveView('password')}
                 style={{
                   color: 'inherit',
                   textDecoration: 'none',
@@ -361,7 +553,7 @@ export default function LoginPage() {
           </>
         )}
 
-        {activeRecovery === 'id' && (
+        {activeView === 'signup' && (
           <div
             style={{
               padding: '8px 0 0',
@@ -370,15 +562,99 @@ export default function LoginPage() {
               gap: '12px',
             }}
           >
-            <div style={{ color: '#d8dce5', fontWeight: 700, textAlign: 'center' }}>아이디 찾기</div>
+            <div style={{ color: '#d8dce5', fontWeight: 700, textAlign: 'center' }}>회원가입</div>
 
             <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#d8dce5' }}>
-              이메일 주소
+              이메일
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="email"
+                  value={signUpForm.email}
+                  onChange={(event) => {
+                    setSignUpForm((prev) => ({ ...prev, email: event.target.value }));
+                    setOtpState((prev) => ({ ...prev, verified: false }));
+                  }}
+                  placeholder="이메일을 입력하세요"
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid #242938',
+                    background: 'rgba(13, 15, 24, 0.85)',
+                    color: '#f4f4f4',
+                    outline: 'none',
+                    fontSize: '15px',
+                    flex: 1,
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleSendEmailOtp}
+                  disabled={otpState.sending}
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(92, 225, 230, 0.35)',
+                    background: otpState.sending ? 'rgba(92, 225, 230, 0.15)' : 'rgba(92, 225, 230, 0.25)',
+                    color: '#0a0c12',
+                    fontWeight: 700,
+                    cursor: otpState.sending ? 'not-allowed' : 'pointer',
+                    minWidth: '120px',
+                  }}
+                >
+                  {otpState.sending ? '발송 중...' : '인증 보내기'}
+                </button>
+              </div>
+            </label>
+
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#d8dce5' }}>
+              이메일 인증번호
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  value={signUpForm.otp}
+                  onChange={(event) => setSignUpForm((prev) => ({ ...prev, otp: event.target.value }))}
+                  placeholder="이메일로 받은 코드를 입력하세요"
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid #242938',
+                    background: 'rgba(13, 15, 24, 0.85)',
+                    color: '#f4f4f4',
+                    outline: 'none',
+                    fontSize: '15px',
+                    flex: 1,
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleVerifyEmailOtp}
+                  disabled={!otpState.sent || otpState.verifying}
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(92, 225, 230, 0.35)',
+                    background: otpState.verifying ? 'rgba(92, 225, 230, 0.15)' : 'rgba(92, 225, 230, 0.25)',
+                    color: otpState.sent ? '#0a0c12' : '#8f96a3',
+                    fontWeight: 700,
+                    cursor: !otpState.sent || otpState.verifying ? 'not-allowed' : 'pointer',
+                    minWidth: '120px',
+                  }}
+                >
+                  {otpState.verifying ? '확인 중...' : '인증 확인'}
+                </button>
+              </div>
+              {otpState.verified && (
+                <div style={{ color: '#5ce1e6', fontSize: '13px' }}>이메일 인증이 완료되었습니다.</div>
+              )}
+            </label>
+
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#d8dce5' }}>
+              비밀번호
               <input
-                type="email"
-                value={idRecovery.email}
-                onChange={(event) => setIdRecovery((prev) => ({ ...prev, email: event.target.value }))}
-                placeholder="가입 시 사용한 이메일을 입력하세요"
+                type="password"
+                value={signUpForm.password}
+                onChange={(event) => setSignUpForm((prev) => ({ ...prev, password: event.target.value }))}
+                placeholder="비밀번호를 입력하세요"
                 style={{
                   padding: '12px 14px',
                   borderRadius: '10px',
@@ -391,14 +667,14 @@ export default function LoginPage() {
               />
             </label>
 
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#d8dce5' }}>
+              비밀번호 확인
               <input
-                type="text"
-                value={idRecovery.code}
-                onChange={(event) => setIdRecovery((prev) => ({ ...prev, code: event.target.value }))}
-                placeholder="인증번호 입력"
+                type="password"
+                value={signUpForm.confirm}
+                onChange={(event) => setSignUpForm((prev) => ({ ...prev, confirm: event.target.value }))}
+                placeholder="비밀번호를 다시 입력하세요"
                 style={{
-                  flex: 1,
                   padding: '12px 14px',
                   borderRadius: '10px',
                   border: '1px solid #242938',
@@ -408,54 +684,44 @@ export default function LoginPage() {
                   fontSize: '15px',
                 }}
               />
+            </label>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <button
                 type="button"
-                onClick={handleSendIdCode}
+                onClick={handleSignUp}
+                disabled={isSigningUp || !otpState.verified}
                 style={{
                   padding: '12px 14px',
                   borderRadius: '10px',
                   border: 'none',
-                  background: 'rgba(92, 225, 230, 0.15)',
-                  color: '#5ce1e6',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  minWidth: '120px',
+                  background:
+                    isSigningUp || !otpState.verified
+                      ? 'rgba(92, 225, 230, 0.18)'
+                      : 'linear-gradient(135deg, #1f6feb, #5ce1e6)',
+                  color: isSigningUp || !otpState.verified ? '#8f96a3' : '#0a0c12',
+                  fontWeight: 800,
+                  fontSize: '16px',
+                  cursor: isSigningUp || !otpState.verified ? 'not-allowed' : 'pointer',
+                  boxShadow:
+                    isSigningUp || !otpState.verified ? 'none' : '0 8px 20px rgba(31, 111, 235, 0.35)',
+                  opacity: isSigningUp || !otpState.verified ? 0.85 : 1,
                 }}
               >
-                인증번호 보내기
+                {isSigningUp ? '가입 중...' : '회원가입'}
               </button>
-              <button
-                type="button"
-                onClick={handleVerifyIdCode}
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: '10px',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #1f6feb, #5ce1e6)',
-                  color: '#0a0c12',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  minWidth: '96px',
-                }}
-              >
-                인증
-              </button>
+
+              {!!signUpMessage && (
+                <div style={{ marginTop: '6px', color: '#f1b3b3', fontSize: '14px' }}>
+                  {signUpMessage}
+                </div>
+              )}
             </div>
-
-            {idRecovery.verified && (
-              <div style={{ color: '#5ce1e6', fontWeight: 700 }}>
-                인증 완료! (실제 서비스에서는 이메일로 계정 조회 로직 필요)
-              </div>
-            )}
-
-            {idRecovery.message && !idRecovery.verified && (
-              <div style={{ color: '#f1b3b3', fontSize: '14px' }}>{idRecovery.message}</div>
-            )}
 
             <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '4px' }}>
               <button
                 type="button"
-                onClick={() => setActiveRecovery(null)}
+                onClick={() => setActiveView('login')}
                 style={{
                   padding: '10px 12px',
                   borderRadius: '10px',
@@ -471,7 +737,7 @@ export default function LoginPage() {
           </div>
         )}
 
-        {activeRecovery === 'password' && (
+        {activeView === 'password' && (
           <div
             style={{
               padding: '8px 0 0',
@@ -481,25 +747,6 @@ export default function LoginPage() {
             }}
           >
             <div style={{ color: '#d8dce5', fontWeight: 700, textAlign: 'center' }}>비밀번호 찾기</div>
-
-            <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#d8dce5' }}>
-              아이디
-              <input
-                type="text"
-                value={passwordRecovery.id}
-                onChange={(event) => setPasswordRecovery((prev) => ({ ...prev, id: event.target.value }))}
-                placeholder="아이디를 입력하세요"
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: '10px',
-                  border: '1px solid #242938',
-                  background: 'rgba(13, 15, 24, 0.85)',
-                  color: '#f4f4f4',
-                  outline: 'none',
-                  fontSize: '15px',
-                }}
-              />
-            </label>
 
             <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#d8dce5' }}>
               이메일 주소
@@ -520,26 +767,11 @@ export default function LoginPage() {
               />
             </label>
 
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input
-                type="text"
-                value={passwordRecovery.code}
-                onChange={(event) => setPasswordRecovery((prev) => ({ ...prev, code: event.target.value }))}
-                placeholder="인증번호 입력"
-                style={{
-                  flex: 1,
-                  padding: '12px 14px',
-                  borderRadius: '10px',
-                  border: '1px solid #242938',
-                  background: 'rgba(13, 15, 24, 0.85)',
-                  color: '#f4f4f4',
-                  outline: 'none',
-                  fontSize: '15px',
-                }}
-              />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <button
                 type="button"
-                onClick={handleSendPasswordCode}
+                onClick={handleSendPasswordReset}
+                disabled={passwordRecovery.sending}
                 style={{
                   padding: '12px 14px',
                   borderRadius: '10px',
@@ -547,81 +779,66 @@ export default function LoginPage() {
                   background: 'rgba(92, 225, 230, 0.15)',
                   color: '#5ce1e6',
                   fontWeight: 700,
-                  cursor: 'pointer',
-                  minWidth: '120px',
+                  cursor: passwordRecovery.sending ? 'not-allowed' : 'pointer',
                 }}
               >
-                인증번호 보내기
+                {passwordRecovery.sending ? '메일 전송 중...' : '재설정 메일 보내기'}
               </button>
+
+              {hasRecoverySession && (
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#d8dce5' }}>
+                  새 비밀번호
+                  <input
+                    type="password"
+                    value={passwordRecovery.newPassword}
+                    onChange={(event) =>
+                      setPasswordRecovery((prev) => ({ ...prev, newPassword: event.target.value }))
+                    }
+                    placeholder="새 비밀번호를 입력하세요"
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: '10px',
+                      border: '1px solid #242938',
+                      background: 'rgba(13, 15, 24, 0.85)',
+                      color: '#f4f4f4',
+                      outline: 'none',
+                      fontSize: '15px',
+                    }}
+                  />
+                </label>
+              )}
+
               <button
                 type="button"
-                onClick={handleVerifyPasswordCode}
+                onClick={handlePasswordReset}
+                disabled={passwordRecovery.updating}
                 style={{
                   padding: '12px 14px',
                   borderRadius: '10px',
                   border: 'none',
-                  background: 'linear-gradient(135deg, #1f6feb, #5ce1e6)',
-                  color: '#0a0c12',
+                  background: hasRecoverySession
+                    ? 'linear-gradient(135deg, #1f6feb, #5ce1e6)'
+                    : 'rgba(92, 225, 230, 0.12)',
+                  color: hasRecoverySession ? '#0a0c12' : '#8f96a3',
                   fontWeight: 700,
-                  cursor: 'pointer',
-                  minWidth: '96px',
+                  cursor: hasRecoverySession ? 'pointer' : 'not-allowed',
+                  opacity: passwordRecovery.updating ? 0.8 : 1,
                 }}
               >
-                인증
+                {passwordRecovery.updating ? '변경 중...' : '새 비밀번호 설정'}
               </button>
+
+              {passwordRecovery.message && (
+                <div style={{ color: hasRecoverySession ? '#5ce1e6' : '#f1b3b3', fontSize: '14px' }}>
+                  {passwordRecovery.message}
+                </div>
+              )}
             </div>
-
-            {passwordRecovery.verified && (
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#d8dce5' }}>
-                새 비밀번호
-                <input
-                  type="password"
-                  value={passwordRecovery.newPassword}
-                  onChange={(event) =>
-                    setPasswordRecovery((prev) => ({ ...prev, newPassword: event.target.value }))
-                  }
-                  placeholder="새 비밀번호를 입력하세요"
-                  style={{
-                    padding: '12px 14px',
-                    borderRadius: '10px',
-                    border: '1px solid #242938',
-                    background: 'rgba(13, 15, 24, 0.85)',
-                    color: '#f4f4f4',
-                    outline: 'none',
-                    fontSize: '15px',
-                  }}
-                />
-              </label>
-            )}
-
-            <button
-              type="button"
-              onClick={handlePasswordReset}
-              style={{
-                padding: '12px 14px',
-                borderRadius: '10px',
-                border: 'none',
-                background: passwordRecovery.verified
-                  ? 'linear-gradient(135deg, #1f6feb, #5ce1e6)'
-                  : 'rgba(92, 225, 230, 0.12)',
-                color: passwordRecovery.verified ? '#0a0c12' : '#8f96a3',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              새 비밀번호 설정
-            </button>
-
-            {passwordRecovery.message && (
-              <div style={{ color: passwordRecovery.verified ? '#5ce1e6' : '#f1b3b3', fontSize: '14px' }}>
-                {passwordRecovery.message}
-              </div>
-            )}
 
             <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '4px' }}>
               <button
                 type="button"
-                onClick={() => setActiveRecovery(null)}
+                onClick={() => setActiveView('login')}
                 style={{
                   padding: '10px 12px',
                   borderRadius: '10px',
