@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { setCurrentUser } from '@/lib/session';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,6 +18,7 @@ export default function LoginPage() {
 
   const handleSubmit = (event) => {
     event.preventDefault();
+    setCurrentUser(form.id);
     router.push('/intro');
   };
 
