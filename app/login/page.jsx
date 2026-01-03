@@ -191,8 +191,8 @@ export default function LoginPage() {
       const email = signUpForm.email.trim();
       const { error } = await supabase.auth.signInWithOtp({
         email,
-        // 이메일로 6자리 OTP를 보내기 위해 signup 타입으로 전송
-        options: { shouldCreateUser: true },
+        // 리다이렉트 링크 대신 6자리 코드 메일을 보내도록 OTP 채널만 사용
+        options: { shouldCreateUser: true, emailRedirectTo: undefined },
       });
 
       if (error) {
@@ -228,8 +228,8 @@ export default function LoginPage() {
       const { data, error } = await supabase.auth.verifyOtp({
         email: signUpForm.email.trim(),
         token: signUpForm.otp.trim(),
-        // signup 타입으로 발송된 이메일 OTP 확인
-        type: 'signup',
+        // 이메일 OTP 코드를 확인 (매직링크가 아닌 숫자 코드 기반)
+        type: 'email',
       });
 
       if (error) {
