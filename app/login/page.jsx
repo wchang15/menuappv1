@@ -138,8 +138,8 @@ export default function LoginPage() {
           <div
             aria-label="회사 로고"
             style={{
-              width: '160px',
-              height: '64px',
+              width: '200px',
+              height: '80px',
               position: 'relative',
             }}
           >
@@ -147,19 +147,12 @@ export default function LoginPage() {
               src="/circle-pay-logo.svg"
               alt="Circle Pay 로고"
               fill
-              sizes="160px"
+              sizes="200px"
               style={{ objectFit: 'contain' }}
               priority
             />
           </div>
-          <div style={{ textAlign: 'center' }}>
-            <h1 style={{ margin: '0 0 8px', fontSize: '24px', color: '#ffffff' }}>
-              로그인
-            </h1>
-            <p style={{ margin: 0, color: '#b3b8c2', fontSize: '14px' }}>
-              메뉴얼에 안내된 계정으로 로그인해 주세요.
-            </p>
-          </div>
+          <h1 style={{ margin: 0, fontSize: '24px', color: '#ffffff' }}>로그인</h1>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
