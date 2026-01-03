@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { KEYS, loadBlob, saveBlob, loadJson, saveJson } from '@/lib/storage';
+import { getCurrentUser } from '@/lib/session';
 import CustomCanvas from './CustomCanvas';
 import TemplateCanvas from './TemplateCanvas';
 
@@ -218,6 +219,8 @@ export default function MenuEditor() {
 
   const [layout, setLayout] = useState(DEFAULT_LAYOUT);
 
+  const [userReady, setUserReady] = useState(false);
+
   // ✅ “편집 모드”
   const [edit, setEdit] = useState(false);
 
@@ -258,6 +261,15 @@ export default function MenuEditor() {
   const [pinModalOpen, setPinModalOpen] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
+
+  useEffect(() => {
+    const current = getCurrentUser();
+    if (!current) {
+      router.replace('/login');
+      return;
+    }
+    setUserReady(true);
+  }, [router]);
 
   // ✅ 비밀번호 설정(변경) 모달
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -317,6 +329,7 @@ export default function MenuEditor() {
   };
 
   useEffect(() => {
+    if (!userReady) return;
     (async () => {
       try {
         const bg = await loadBlob(KEYS.MENU_BG);
@@ -369,7 +382,7 @@ export default function MenuEditor() {
       const saved = localStorage.getItem(LANG_KEY);
       if (saved === 'ko' || saved === 'en') setLang(saved);
     } catch {}
-  }, []);
+  }, [userReady]);
 
   // ✅ 보기 모드에서 텍스트 길게 눌러도 선택/터치 콜아웃이 뜨지 않도록 body 단위 차단
   useEffect(() => {
