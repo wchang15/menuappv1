@@ -131,8 +131,8 @@ export default function LoginPage() {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '12px',
-            marginBottom: '32px',
+            gap: '8px',
+            marginBottom: '16px',
           }}
         >
           <div
@@ -152,176 +152,175 @@ export default function LoginPage() {
               priority
             />
           </div>
-          <h1 style={{ margin: 0, fontSize: '24px', color: '#ffffff' }}>로그인</h1>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#d8dce5' }}>
-            아이디
-            <input
-              type="text"
-              name="id"
-              value={form.id}
-              onChange={handleChange}
-              required
-              placeholder="아이디를 입력하세요"
+        {!activeRecovery && (
+          <>
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#d8dce5' }}>
+                아이디
+                <input
+                  type="text"
+                  name="id"
+                  value={form.id}
+                  onChange={handleChange}
+                  required
+                  placeholder="아이디를 입력하세요"
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid #242938',
+                    background: 'rgba(13, 15, 24, 0.85)',
+                    color: '#f4f4f4',
+                    outline: 'none',
+                    fontSize: '15px',
+                  }}
+                />
+              </label>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#d8dce5' }}>
+                비밀번호
+                <input
+                  type="password"
+                  name="password"
+                  value={form.password}
+                  onChange={handleChange}
+                  required
+                  placeholder="비밀번호를 입력하세요"
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid #242938',
+                    background: 'rgba(13, 15, 24, 0.85)',
+                    color: '#f4f4f4',
+                    outline: 'none',
+                    fontSize: '15px',
+                  }}
+                />
+              </label>
+
+              <button
+                type="submit"
+                style={{
+                  marginTop: '4px',
+                  padding: '12px 14px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #1f6feb, #5ce1e6)',
+                  color: '#0a0c12',
+                  fontWeight: 700,
+                  fontSize: '16px',
+                  cursor: 'pointer',
+                  boxShadow: '0 8px 20px rgba(31, 111, 235, 0.35)',
+                  transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                }}
+                onMouseDown={(event) => {
+                  event.currentTarget.style.transform = 'translateY(1px)';
+                  event.currentTarget.style.boxShadow = '0 4px 12px rgba(31, 111, 235, 0.35)';
+                }}
+                onMouseUp={(event) => {
+                  event.currentTarget.style.transform = 'translateY(0)';
+                  event.currentTarget.style.boxShadow = '0 8px 20px rgba(31, 111, 235, 0.35)';
+                }}
+              >
+                로그인
+              </button>
+            </form>
+
+            <div
               style={{
+                marginTop: '12px',
                 padding: '12px 14px',
                 borderRadius: '10px',
-                border: '1px solid #242938',
-                background: 'rgba(13, 15, 24, 0.85)',
-                color: '#f4f4f4',
-                outline: 'none',
-                fontSize: '15px',
-              }}
-            />
-          </label>
-
-          <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#d8dce5' }}>
-            비밀번호
-            <input
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
-              required
-              placeholder="비밀번호를 입력하세요"
-              style={{
-                padding: '12px 14px',
-                borderRadius: '10px',
-                border: '1px solid #242938',
-                background: 'rgba(13, 15, 24, 0.85)',
-                color: '#f4f4f4',
-                outline: 'none',
-                fontSize: '15px',
-              }}
-            />
-          </label>
-
-          <button
-            type="submit"
-            style={{
-              marginTop: '8px',
-              padding: '12px 14px',
-              borderRadius: '10px',
-              border: 'none',
-              background: 'linear-gradient(135deg, #1f6feb, #5ce1e6)',
-              color: '#0a0c12',
-              fontWeight: 700,
-              fontSize: '16px',
-              cursor: 'pointer',
-              boxShadow: '0 8px 20px rgba(31, 111, 235, 0.35)',
-              transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-            }}
-            onMouseDown={(event) => {
-              event.currentTarget.style.transform = 'translateY(1px)';
-              event.currentTarget.style.boxShadow = '0 4px 12px rgba(31, 111, 235, 0.35)';
-            }}
-            onMouseUp={(event) => {
-              event.currentTarget.style.transform = 'translateY(0)';
-              event.currentTarget.style.boxShadow = '0 8px 20px rgba(31, 111, 235, 0.35)';
-            }}
-          >
-            로그인
-          </button>
-        </form>
-
-        <div
-          style={{
-            marginTop: '12px',
-            padding: '12px 14px',
-            borderRadius: '10px',
-            background: 'rgba(92, 225, 230, 0.08)',
-            border: '1px solid rgba(92, 225, 230, 0.25)',
-            color: '#d8f7ff',
-            fontSize: '14px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '6px',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-            <div>
-              <strong style={{ display: 'block', marginBottom: '4px' }}>데모 계정</strong>
-              <span style={{ color: '#b3e7f3' }}>아이디: test / 비밀번호: test1</span>
-            </div>
-            <button
-              type="button"
-              onClick={fillDemoAccount}
-              style={{
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: '1px solid rgba(92, 225, 230, 0.4)',
-                background: 'rgba(92, 225, 230, 0.15)',
-                color: '#0a0c12',
-                fontWeight: 700,
-                cursor: 'pointer',
+                background: 'rgba(92, 225, 230, 0.08)',
+                border: '1px solid rgba(92, 225, 230, 0.25)',
+                color: '#d8f7ff',
+                fontSize: '14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
               }}
             >
-              자동 입력
-            </button>
-          </div>
-        </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                <div>
+                  <strong style={{ display: 'block', marginBottom: '4px' }}>데모 계정</strong>
+                  <span style={{ color: '#b3e7f3' }}>아이디: test / 비밀번호: test1</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={fillDemoAccount}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(92, 225, 230, 0.4)',
+                    background: 'rgba(92, 225, 230, 0.15)',
+                    color: '#0a0c12',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  자동 입력
+                </button>
+              </div>
+            </div>
 
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'center',
-            gap: '16px',
-            marginTop: '18px',
-            color: '#8f96a3',
-            fontSize: '14px',
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => setActiveRecovery((prev) => (prev === 'id' ? null : 'id'))}
-            style={{
-              color: 'inherit',
-              textDecoration: 'none',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: 0,
-              fontSize: 'inherit',
-              fontFamily: 'inherit',
-            }}
-          >
-            아이디 찾기
-          </button>
-          <span aria-hidden="true">|</span>
-          <button
-            type="button"
-            onClick={() => setActiveRecovery((prev) => (prev === 'password' ? null : 'password'))}
-            style={{
-              color: 'inherit',
-              textDecoration: 'none',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: 0,
-              fontSize: 'inherit',
-              fontFamily: 'inherit',
-            }}
-          >
-            비밀번호 찾기
-          </button>
-        </div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                gap: '16px',
+                marginTop: '18px',
+                color: '#8f96a3',
+                fontSize: '14px',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setActiveRecovery('id')}
+                style={{
+                  color: 'inherit',
+                  textDecoration: 'none',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 0,
+                  fontSize: 'inherit',
+                  fontFamily: 'inherit',
+                }}
+              >
+                아이디 찾기
+              </button>
+              <span aria-hidden="true">|</span>
+              <button
+                type="button"
+                onClick={() => setActiveRecovery('password')}
+                style={{
+                  color: 'inherit',
+                  textDecoration: 'none',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 0,
+                  fontSize: 'inherit',
+                  fontFamily: 'inherit',
+                }}
+              >
+                비밀번호 찾기
+              </button>
+            </div>
+          </>
+        )}
 
         {activeRecovery === 'id' && (
           <div
             style={{
-              marginTop: '18px',
-              padding: '16px',
-              borderRadius: '12px',
-              background: 'rgba(13, 15, 24, 0.6)',
-              border: '1px solid rgba(92, 225, 230, 0.25)',
+              padding: '8px 0 0',
               display: 'flex',
               flexDirection: 'column',
               gap: '12px',
             }}
           >
-            <div style={{ color: '#d8dce5', fontWeight: 700 }}>아이디 찾기</div>
+            <div style={{ color: '#d8dce5', fontWeight: 700, textAlign: 'center' }}>아이디 찾기</div>
             <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#d8dce5' }}>
               이메일 주소
               <input
@@ -390,28 +389,56 @@ export default function LoginPage() {
                 인증
               </button>
             </div>
-            {idRecovery.message && (
-              <div style={{ color: idRecovery.verified ? '#5ce1e6' : '#f1b3b3', fontSize: '14px' }}>
-                {idRecovery.message}
-              </div>
+            {idRecovery.verified && (
+              <div style={{ color: '#5ce1e6', fontWeight: 700 }}>인증 완료! 당신의 ID는 000 입니다.</div>
             )}
+            {idRecovery.message && !idRecovery.verified && (
+              <div style={{ color: '#f1b3b3', fontSize: '14px' }}>{idRecovery.message}</div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '4px' }}>
+              <button
+                type="button"
+                onClick={() => setActiveRecovery(null)}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: '1px solid rgba(92, 225, 230, 0.25)',
+                  background: 'rgba(92, 225, 230, 0.12)',
+                  color: '#d8f7ff',
+                  cursor: 'pointer',
+                }}
+              >
+                로그인으로 돌아가기
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveRecovery('password')}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #1f6feb, #5ce1e6)',
+                  color: '#0a0c12',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                비밀번호 찾기
+              </button>
+            </div>
           </div>
         )}
 
         {activeRecovery === 'password' && (
           <div
             style={{
-              marginTop: '18px',
-              padding: '16px',
-              borderRadius: '12px',
-              background: 'rgba(13, 15, 24, 0.6)',
-              border: '1px solid rgba(92, 225, 230, 0.25)',
+              padding: '8px 0 0',
               display: 'flex',
               flexDirection: 'column',
               gap: '12px',
             }}
           >
-            <div style={{ color: '#d8dce5', fontWeight: 700 }}>비밀번호 찾기</div>
+            <div style={{ color: '#d8dce5', fontWeight: 700, textAlign: 'center' }}>비밀번호 찾기</div>
             <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#d8dce5' }}>
               아이디
               <input
@@ -544,6 +571,37 @@ export default function LoginPage() {
                 {passwordRecovery.message}
               </div>
             )}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '4px' }}>
+              <button
+                type="button"
+                onClick={() => setActiveRecovery(null)}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: '1px solid rgba(92, 225, 230, 0.25)',
+                  background: 'rgba(92, 225, 230, 0.12)',
+                  color: '#d8f7ff',
+                  cursor: 'pointer',
+                }}
+              >
+                로그인으로 돌아가기
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveRecovery('id')}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #1f6feb, #5ce1e6)',
+                  color: '#0a0c12',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                아이디 찾기
+              </button>
+            </div>
           </div>
         )}
       </div>
