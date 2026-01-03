@@ -8,7 +8,12 @@ import { supabase } from '@/lib/supabaseClient';
 export default function LoginPage() {
   const router = useRouter();
   const [form, setForm] = useState({ id: '', password: '' });
-  const [signUpForm, setSignUpForm] = useState({ email: '', password: '', confirm: '' });
+  const [signUpForm, setSignUpForm] = useState({
+    email: '',
+    password: '',
+    confirm: '',
+    otp: '',
+  });
   const [activeView, setActiveView] = useState('login');
   const [hasRecoverySession, setHasRecoverySession] = useState(false);
 
@@ -16,6 +21,13 @@ export default function LoginPage() {
   const [loginMessage, setLoginMessage] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isSigningUp, setIsSigningUp] = useState(false);
+  const [signUpMessage, setSignUpMessage] = useState('');
+  const [otpState, setOtpState] = useState({
+    sending: false,
+    sent: false,
+    verifying: false,
+    verified: false,
+  });
 
   const [passwordRecovery, setPasswordRecovery] = useState({
     email: '',
@@ -126,46 +138,113 @@ export default function LoginPage() {
 
   const handleSignUp = async (event) => {
     event.preventDefault();
-    setLoginMessage('');
+    setSignUpMessage('');
 
     if (!signUpForm.email || !signUpForm.password || !signUpForm.confirm) {
-      setLoginMessage('모든 필드를 입력해 주세요.');
+      setSignUpMessage('모든 필드를 입력해 주세요.');
+      return;
+    }
+
+    if (!otpState.verified) {
+      setSignUpMessage('이메일 인증을 완료해 주세요.');
       return;
     }
 
     if (signUpForm.password !== signUpForm.confirm) {
-      setLoginMessage('비밀번호와 비밀번호 확인이 일치하지 않습니다.');
+      setSignUpMessage('비밀번호와 비밀번호 확인이 일치하지 않습니다.');
       return;
     }
 
     setIsSigningUp(true);
 
     try {
-      const email = signUpForm.email.trim();
       const password = signUpForm.password;
 
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await supabase.auth.updateUser({ password });
 
       if (error) {
-        setLoginMessage(error.message);
+        setSignUpMessage(error.message);
         return;
       }
 
       if (data?.user?.id) setCurrentUser(data.user.id);
 
-      setLoginMessage(
-        data?.session
-          ? '회원가입 및 로그인 완료!'
-          : '회원가입이 완료되었습니다. 이메일을 확인해 주세요.'
-      );
-
-      if (data?.session) {
-        router.push('/intro');
-      }
+      setSignUpMessage('회원가입이 완료되었습니다!');
+      router.push('/intro');
     } catch (e) {
-      setLoginMessage('회원가입 중 오류가 발생했습니다.');
+      setSignUpMessage('회원가입 중 오류가 발생했습니다.');
     } finally {
       setIsSigningUp(false);
+    }
+  };
+
+  const handleSendEmailOtp = async () => {
+    setSignUpMessage('');
+    if (!signUpForm.email) {
+      setSignUpMessage('이메일을 입력해 주세요.');
+      return;
+    }
+
+    setOtpState((prev) => ({ ...prev, sending: true }));
+
+    try {
+      const email = signUpForm.email.trim();
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: true },
+      });
+
+      if (error) {
+        setSignUpMessage(error.message);
+        setOtpState((prev) => ({ ...prev, sending: false, sent: false }));
+        return;
+      }
+
+      setOtpState((prev) => ({ ...prev, sending: false, sent: true }));
+      setSignUpMessage('이메일로 인증 코드를 보냈습니다. 받은 코드를 입력해 주세요.');
+    } catch (e) {
+      setSignUpMessage('인증 메일 전송 중 오류가 발생했습니다.');
+      setOtpState((prev) => ({ ...prev, sending: false, sent: false }));
+    }
+  };
+
+  const handleVerifyEmailOtp = async () => {
+    setSignUpMessage('');
+
+    if (!signUpForm.email) {
+      setSignUpMessage('이메일을 입력해 주세요.');
+      return;
+    }
+
+    if (!signUpForm.otp.trim()) {
+      setSignUpMessage('이메일로 받은 인증번호를 입력해 주세요.');
+      return;
+    }
+
+    setOtpState((prev) => ({ ...prev, verifying: true }));
+
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: signUpForm.email.trim(),
+        token: signUpForm.otp.trim(),
+        type: 'email',
+      });
+
+      if (error) {
+        setSignUpMessage(error.message);
+        setOtpState((prev) => ({ ...prev, verifying: false, verified: false }));
+        return;
+      }
+
+      if (data?.session?.user?.id) {
+        setCurrentUser(data.session.user.id);
+      }
+
+      setOtpState((prev) => ({ ...prev, verifying: false, verified: true }));
+      setSignUpMessage('이메일 인증 완료! 비밀번호를 설정해 회원가입을 마무리해 주세요.');
+    } catch (e) {
+      setSignUpMessage('인증 중 오류가 발생했습니다.');
+      setOtpState((prev) => ({ ...prev, verifying: false, verified: false }));
     }
   };
 
@@ -481,21 +560,86 @@ export default function LoginPage() {
 
             <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#d8dce5' }}>
               이메일
-              <input
-                type="email"
-                value={signUpForm.email}
-                onChange={(event) => setSignUpForm((prev) => ({ ...prev, email: event.target.value }))}
-                placeholder="이메일을 입력하세요"
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: '10px',
-                  border: '1px solid #242938',
-                  background: 'rgba(13, 15, 24, 0.85)',
-                  color: '#f4f4f4',
-                  outline: 'none',
-                  fontSize: '15px',
-                }}
-              />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="email"
+                  value={signUpForm.email}
+                  onChange={(event) => {
+                    setSignUpForm((prev) => ({ ...prev, email: event.target.value }));
+                    setOtpState((prev) => ({ ...prev, verified: false }));
+                  }}
+                  placeholder="이메일을 입력하세요"
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid #242938',
+                    background: 'rgba(13, 15, 24, 0.85)',
+                    color: '#f4f4f4',
+                    outline: 'none',
+                    fontSize: '15px',
+                    flex: 1,
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleSendEmailOtp}
+                  disabled={otpState.sending}
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(92, 225, 230, 0.35)',
+                    background: otpState.sending ? 'rgba(92, 225, 230, 0.15)' : 'rgba(92, 225, 230, 0.25)',
+                    color: '#0a0c12',
+                    fontWeight: 700,
+                    cursor: otpState.sending ? 'not-allowed' : 'pointer',
+                    minWidth: '120px',
+                  }}
+                >
+                  {otpState.sending ? '발송 중...' : '인증 보내기'}
+                </button>
+              </div>
+            </label>
+
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#d8dce5' }}>
+              이메일 인증번호
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  value={signUpForm.otp}
+                  onChange={(event) => setSignUpForm((prev) => ({ ...prev, otp: event.target.value }))}
+                  placeholder="이메일로 받은 코드를 입력하세요"
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid #242938',
+                    background: 'rgba(13, 15, 24, 0.85)',
+                    color: '#f4f4f4',
+                    outline: 'none',
+                    fontSize: '15px',
+                    flex: 1,
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleVerifyEmailOtp}
+                  disabled={!otpState.sent || otpState.verifying}
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(92, 225, 230, 0.35)',
+                    background: otpState.verifying ? 'rgba(92, 225, 230, 0.15)' : 'rgba(92, 225, 230, 0.25)',
+                    color: otpState.sent ? '#0a0c12' : '#8f96a3',
+                    fontWeight: 700,
+                    cursor: !otpState.sent || otpState.verifying ? 'not-allowed' : 'pointer',
+                    minWidth: '120px',
+                  }}
+                >
+                  {otpState.verifying ? '확인 중...' : '인증 확인'}
+                </button>
+              </div>
+              {otpState.verified && (
+                <div style={{ color: '#5ce1e6', fontSize: '13px' }}>이메일 인증이 완료되었습니다.</div>
+              )}
             </label>
 
             <label style={{ display: 'flex', flexDirection: 'column', gap: '8px', color: '#d8dce5' }}>
@@ -540,28 +684,30 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={handleSignUp}
-                disabled={isSigningUp}
+                disabled={isSigningUp || !otpState.verified}
                 style={{
                   padding: '12px 14px',
                   borderRadius: '10px',
                   border: 'none',
-                  background: isSigningUp
-                    ? 'rgba(92, 225, 230, 0.18)'
-                    : 'linear-gradient(135deg, #1f6feb, #5ce1e6)',
-                  color: '#0a0c12',
+                  background:
+                    isSigningUp || !otpState.verified
+                      ? 'rgba(92, 225, 230, 0.18)'
+                      : 'linear-gradient(135deg, #1f6feb, #5ce1e6)',
+                  color: isSigningUp || !otpState.verified ? '#8f96a3' : '#0a0c12',
                   fontWeight: 800,
                   fontSize: '16px',
-                  cursor: isSigningUp ? 'not-allowed' : 'pointer',
-                  boxShadow: isSigningUp ? 'none' : '0 8px 20px rgba(31, 111, 235, 0.35)',
-                  opacity: isSigningUp ? 0.85 : 1,
+                  cursor: isSigningUp || !otpState.verified ? 'not-allowed' : 'pointer',
+                  boxShadow:
+                    isSigningUp || !otpState.verified ? 'none' : '0 8px 20px rgba(31, 111, 235, 0.35)',
+                  opacity: isSigningUp || !otpState.verified ? 0.85 : 1,
                 }}
               >
                 {isSigningUp ? '가입 중...' : '회원가입'}
               </button>
 
-              {!!loginMessage && (
+              {!!signUpMessage && (
                 <div style={{ marginTop: '6px', color: '#f1b3b3', fontSize: '14px' }}>
-                  {loginMessage}
+                  {signUpMessage}
                 </div>
               )}
             </div>
