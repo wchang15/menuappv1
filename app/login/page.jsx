@@ -191,6 +191,7 @@ export default function LoginPage() {
       const email = signUpForm.email.trim();
       const { error } = await supabase.auth.signInWithOtp({
         email,
+        // 이메일로 6자리 OTP를 보내기 위해 signup 타입으로 전송
         options: { shouldCreateUser: true },
       });
 
@@ -201,7 +202,7 @@ export default function LoginPage() {
       }
 
       setOtpState((prev) => ({ ...prev, sending: false, sent: true }));
-      setSignUpMessage('이메일로 인증 코드를 보냈습니다. 받은 코드를 입력해 주세요.');
+      setSignUpMessage('이메일로 6자리 인증번호를 보냈습니다. 받은 번호를 입력해 주세요.');
     } catch (e) {
       setSignUpMessage('인증 메일 전송 중 오류가 발생했습니다.');
       setOtpState((prev) => ({ ...prev, sending: false, sent: false }));
@@ -227,7 +228,8 @@ export default function LoginPage() {
       const { data, error } = await supabase.auth.verifyOtp({
         email: signUpForm.email.trim(),
         token: signUpForm.otp.trim(),
-        type: 'email',
+        // signup 타입으로 발송된 이메일 OTP 확인
+        type: 'signup',
       });
 
       if (error) {
