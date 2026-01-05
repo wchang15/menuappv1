@@ -232,6 +232,7 @@ export default function MenuEditor() {
   const [showEditorMenu, setShowEditorMenu] = useState(false);
 
   const fileInputRef = useRef(null);
+  const introVideoInputRef = useRef(null);
   const pageBgInputRef = useRef(null);
 
   const [dragOver, setDragOver] = useState(false);
@@ -578,6 +579,26 @@ export default function MenuEditor() {
     setTimeout(() => hardResetScrollTop('auto'), 0);
   };
 
+  // ✅ 인트로 비디오 업로드
+  const uploadIntroVideo = async (file) => {
+    if (!file) return;
+
+    try {
+      await uploadAssetToCloud(file);
+    } catch (e) {
+      console.error(e);
+    }
+
+    await saveBlob(KEYS.INTRO_VIDEO, file);
+    setAssetUploadMessage(
+      lang === 'ko' ? '인트로 영상이 변경되었습니다.' : 'Intro video has been updated.'
+    );
+
+    if (introVideoInputRef.current) {
+      introVideoInputRef.current.value = '';
+    }
+  };
+
   // ✅ 페이지 배경 업로드(현재 pageIndex)
   const uploadPageBg = async (file, pageNum) => {
     const p = Number(pageNum);
@@ -631,6 +652,7 @@ export default function MenuEditor() {
   };
 
   const openFilePicker = () => fileInputRef.current?.click();
+  const openIntroVideoPicker = () => introVideoInputRef.current?.click();
   const openPageBgPicker = () => pageBgInputRef.current?.click();
 
   // ✅ 타이머 정리 + 보기모드에서 수정 버튼 숨김
@@ -779,6 +801,7 @@ export default function MenuEditor() {
       logout: '로그아웃',
       edit: '수정',
       changeBg: '배경(전체) 선택',
+      introVideo: '인트로 비디오 변경',
       pageBg: '페이지 배경',
       pinSettings: '비밀번호 설정',
       editorMenu: '에디터 메뉴',
@@ -834,6 +857,7 @@ export default function MenuEditor() {
       logout: 'Log out',
       edit: 'Edit',
       changeBg: 'Background (All Pages)',
+      introVideo: 'Change intro video',
       pageBg: 'Page Background',
       pinSettings: 'PIN Settings',
       editorMenu: 'Editor Menu',
@@ -1690,7 +1714,7 @@ export default function MenuEditor() {
                   >
                     {T.editorMenu}
                   </button>
-                  </div>
+                </div>
               )}
 
               {/* ✅ 편집 메뉴 (토글) */}
@@ -1708,6 +1732,10 @@ export default function MenuEditor() {
 
                   <button style={styles.menuBtn} onClick={() => setPageBgModalOpen(true)}>
                     {T.pageBg}
+                  </button>
+
+                  <button style={styles.menuBtn} onClick={openIntroVideoPicker}>
+                    {T.introVideo}
                   </button>
 
                   <button
@@ -1736,6 +1764,14 @@ export default function MenuEditor() {
                     accept="image/*"
                     style={{ display: 'none' }}
                     onChange={(e) => uploadBg(e.target.files?.[0])}
+                  />
+
+                  <input
+                    ref={introVideoInputRef}
+                    type="file"
+                    accept="video/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => uploadIntroVideo(e.target.files?.[0])}
                   />
                 </div>
               )}
