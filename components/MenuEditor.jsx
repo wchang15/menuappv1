@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { KEYS, loadBlob, saveBlob, loadJson, saveJson } from '@/lib/storage';
-import { getCurrentUser } from '@/lib/session';
+import { clearCurrentUser, getCurrentUser } from '@/lib/session';
 import { supabase } from '@/lib/supabaseClient';
 import CustomCanvas from './CustomCanvas';
 import TemplateCanvas from './TemplateCanvas';
@@ -466,6 +466,15 @@ export default function MenuEditor() {
   // ✅ 영상으로 돌아가기
   const goIntro = () => router.push('/intro');
 
+  // ✅ 로그아웃 처리
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch {}
+    clearCurrentUser();
+    router.replace('/login');
+  };
+
   // ✅ 기본 배경 URL
   const bgUrl = useMemo(() => {
     if (!bgBlob) return null;
@@ -767,6 +776,7 @@ export default function MenuEditor() {
       drop3: '하세요',
       hint: '권장: JPG/PNG · 가로형(16:9)',
       keep: '* 배경은 브라우저에 저장되어 다음 실행에도 유지됩니다.',
+      logout: '로그아웃',
       edit: '수정',
       changeBg: '배경(전체) 선택',
       pageBg: '페이지 배경',
@@ -821,6 +831,7 @@ export default function MenuEditor() {
       drop3: '',
       hint: 'Recommended: JPG/PNG · Landscape (16:9)',
       keep: '* Saved in your browser and will persist.',
+      logout: 'Log out',
       edit: 'Edit',
       changeBg: 'Background (All Pages)',
       pageBg: 'Page Background',
@@ -1504,15 +1515,26 @@ export default function MenuEditor() {
             </div>
 
             {!edit && showEditBtn && (
-              <button
-                style={styles.editBtn}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  requestEdit();
-                }}
-              >
-                {T.edit}
-              </button>
+              <div style={styles.editActionsRow}>
+                <button
+                  style={styles.logoutBtn}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleLogout();
+                  }}
+                >
+                  {T.logout}
+                </button>
+                <button
+                  style={styles.editBtn}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    requestEdit();
+                  }}
+                >
+                  {T.edit}
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -2335,6 +2357,24 @@ const styles = {
     cursor: 'pointer',
     fontWeight: 900,
     background: 'rgba(0,0,0,0.7)',
+    color: '#fff',
+    boxShadow: '0 8px 20px rgba(0,0,0,0.4)',
+    minWidth: 88,
+  },
+
+  editActionsRow: {
+    display: 'flex',
+    gap: 8,
+  },
+
+  logoutBtn: {
+    alignSelf: 'flex-end',
+    padding: '10px 14px',
+    borderRadius: 12,
+    border: '1px solid rgba(255, 99, 99, 0.65)',
+    cursor: 'pointer',
+    fontWeight: 900,
+    background: 'linear-gradient(135deg, #ff4d4f, #b22222)',
     color: '#fff',
     boxShadow: '0 8px 20px rgba(0,0,0,0.4)',
     minWidth: 88,

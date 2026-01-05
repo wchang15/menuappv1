@@ -118,12 +118,6 @@ export default function LoginPage() {
     };
   }, []);
 
-  // ✅ 데모 계정 자동 채우기
-  const fillDemoAccount = () => {
-    setForm({ id: 'test@example.com', password: 'test1' });
-    setLoginMessage('데모 계정은 Supabase에 동일한 이메일/비밀번호로 만들어져 있어야 로그인됩니다.');
-  };
-
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -530,43 +524,6 @@ export default function LoginPage() {
                 <div style={{ marginTop: '6px', color: '#f1b3b3', fontSize: '14px' }}>{loginMessage}</div>
               )}
             </form>
-
-            <div
-              style={{
-                marginTop: '12px',
-                padding: '12px 14px',
-                borderRadius: '10px',
-                background: 'rgba(92, 225, 230, 0.08)',
-                border: '1px solid rgba(92, 225, 230, 0.25)',
-                color: '#d8f7ff',
-                fontSize: '14px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '6px',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-                <div>
-                  <strong style={{ display: 'block', marginBottom: '4px' }}>데모 계정</strong>
-                  <span style={{ color: '#b3e7f3' }}>(예시) 이메일: test@example.com / 비밀번호: test1</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={fillDemoAccount}
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(92, 225, 230, 0.4)',
-                    background: 'rgba(92, 225, 230, 0.15)',
-                    color: '#0a0c12',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                  }}
-                >
-                  자동 입력
-                </button>
-              </div>
-            </div>
 
             <div
               style={{
