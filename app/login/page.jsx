@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { clearCurrentUser, setCurrentUser } from '@/lib/session';
 import { supabase } from '@/lib/supabaseClient';
 
+const LANG_KEY = 'APP_LANG_V1';
 const INITIAL_LOGIN_FORM = { id: '', password: '' };
 const INITIAL_SIGNUP_FORM = { email: '', password: '', confirm: '', otp: '' };
 const INITIAL_OTP_STATE = { sending: false, sent: false, verifying: false, verified: false };
@@ -20,6 +21,7 @@ export default function LoginPage() {
 
   const [activeView, setActiveView] = useState('login');
   const [hasRecoverySession, setHasRecoverySession] = useState(false);
+  const [lang, setLang] = useState('en');
 
   // ✅ 로그인 메시지/로딩
   const [loginMessage, setLoginMessage] = useState('');
@@ -96,6 +98,21 @@ export default function LoginPage() {
         setActiveView('login');
       });
   }, [resetAllFields]);
+
+  // ✅ 저장된 언어 불러오기
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(LANG_KEY);
+      if (saved === 'ko' || saved === 'en') setLang(saved);
+    } catch {}
+  }, []);
+
+  const handleSetLanguage = (nextLang) => {
+    setLang(nextLang);
+    try {
+      localStorage.setItem(LANG_KEY, nextLang);
+    } catch {}
+  };
 
   // ✅ auth listener
   useEffect(() => {
@@ -409,6 +426,33 @@ export default function LoginPage() {
         boxSizing: 'border-box',
       }}
     >
+      <div style={langStyles.wrap}>
+        <div style={langStyles.row}>
+          <button
+            style={{
+              ...langStyles.button,
+              ...(lang === 'en' ? langStyles.buttonActive : {}),
+            }}
+            onClick={() => handleSetLanguage('en')}
+            aria-label="English"
+            title="English"
+          >
+            🇺🇸
+          </button>
+          <button
+            style={{
+              ...langStyles.button,
+              ...(lang === 'ko' ? langStyles.buttonActive : {}),
+            }}
+            onClick={() => handleSetLanguage('ko')}
+            aria-label="한국어"
+            title="한국어"
+          >
+            🇰🇷
+          </button>
+        </div>
+      </div>
+
       <div
         style={{
           width: '100%',
@@ -871,3 +915,40 @@ export default function LoginPage() {
     </div>
   );
 }
+
+const langStyles = {
+  wrap: {
+    position: 'fixed',
+    top: 'calc(env(safe-area-inset-top, 0px) + 32px)',
+    right: 'calc(env(safe-area-inset-right, 0px) + 20px)',
+    zIndex: 99999,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 10,
+    alignItems: 'flex-end',
+  },
+  row: {
+    display: 'flex',
+    gap: 12,
+    alignItems: 'center',
+  },
+  button: {
+    width: 56,
+    height: 44,
+    borderRadius: 14,
+    border: '1px solid rgba(255,255,255,0.6)',
+    background: 'rgba(0,0,0,0.48)',
+    cursor: 'pointer',
+    fontSize: 24,
+    lineHeight: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 6px 18px rgba(0,0,0,0.3)',
+    padding: 0,
+  },
+  buttonActive: {
+    border: '1px solid rgba(255,255,255,0.95)',
+    background: 'rgba(0,0,0,0.65)',
+  },
+};
