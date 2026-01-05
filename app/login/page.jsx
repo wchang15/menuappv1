@@ -1,22 +1,22 @@
 'use client';
 
 import Image from 'next/image';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { setCurrentUser } from '@/lib/session';
+import { clearCurrentUser, setCurrentUser } from '@/lib/session';
 import { supabase } from '@/lib/supabaseClient';
+
+const INITIAL_LOGIN_FORM = { id: '', password: '' };
+const INITIAL_SIGNUP_FORM = { email: '', password: '', confirm: '', otp: '' };
+const INITIAL_OTP_STATE = { sending: false, sent: false, verifying: false, verified: false };
+const INITIAL_PASSWORD_RECOVERY = { email: '', newPassword: '', message: '', sending: false, updating: false };
 
 export default function LoginPage() {
   const router = useRouter();
 
-  const [form, setForm] = useState({ id: '', password: '' });
+  const [form, setForm] = useState(INITIAL_LOGIN_FORM);
 
-  const [signUpForm, setSignUpForm] = useState({
-    email: '',
-    password: '',
-    confirm: '',
-    otp: '',
-  });
+  const [signUpForm, setSignUpForm] = useState(INITIAL_SIGNUP_FORM);
 
   const [activeView, setActiveView] = useState('login');
   const [hasRecoverySession, setHasRecoverySession] = useState(false);
@@ -30,21 +30,28 @@ export default function LoginPage() {
   const [signUpMessage, setSignUpMessage] = useState('');
 
   // ✅ OTP 상태
-  const [otpState, setOtpState] = useState({
-    sending: false,
-    sent: false,
-    verifying: false,
-    verified: false,
-  });
+  const [otpState, setOtpState] = useState(INITIAL_OTP_STATE);
 
   // ✅ 비밀번호 찾기/재설정 상태
-  const [passwordRecovery, setPasswordRecovery] = useState({
-    email: '',
-    newPassword: '',
-    message: '',
-    sending: false,
-    updating: false,
-  });
+  const [passwordRecovery, setPasswordRecovery] = useState(INITIAL_PASSWORD_RECOVERY);
+
+  const resetAllFields = useCallback(() => {
+    setForm(INITIAL_LOGIN_FORM);
+    setSignUpForm(INITIAL_SIGNUP_FORM);
+    setOtpState(INITIAL_OTP_STATE);
+    setPasswordRecovery(INITIAL_PASSWORD_RECOVERY);
+    setLoginMessage('');
+    setSignUpMessage('');
+    setHasRecoverySession(false);
+  }, []);
+
+  const switchView = useCallback(
+    (view) => {
+      resetAllFields();
+      setActiveView(view);
+    },
+    [resetAllFields]
+  );
 
   // ✅ Supabase password recovery 링크로 돌아온 경우 해시 파싱
   useEffect(() => {
@@ -73,6 +80,22 @@ export default function LoginPage() {
       }
     }
   }, []);
+
+  // ✅ 로그인 페이지 접근 시 세션/입력값 초기화
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hash.includes('type=recovery')) {
+      return;
+    }
+
+    supabase.auth
+      .signOut()
+      .catch(() => {})
+      .finally(() => {
+        clearCurrentUser();
+        resetAllFields();
+        setActiveView('login');
+      });
+  }, [resetAllFields]);
 
   // ✅ auth listener
   useEffect(() => {
@@ -204,6 +227,26 @@ export default function LoginPage() {
     }));
 
     try {
+      const { error: existingUserError } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: false,
+        },
+      });
+
+      if (!existingUserError) {
+        setSignUpMessage('이미 가입된 이메일입니다. 로그인하거나 비밀번호 찾기를 이용해 주세요.');
+        setOtpState((prev) => ({ ...prev, sending: false, sent: false }));
+        return;
+      }
+
+      const notFound = (existingUserError.message || '').toLowerCase().includes('not found');
+      if (!notFound) {
+        setSignUpMessage(existingUserError.message);
+        setOtpState((prev) => ({ ...prev, sending: false, sent: false }));
+        return;
+      }
+
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
@@ -291,11 +334,15 @@ export default function LoginPage() {
       const redirectTo = `${window.location.origin}/login`;
       const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
 
+      const notFound = (error?.message || '').toLowerCase().includes('not found');
+
       setPasswordRecovery((prev) => ({
         ...prev,
         sending: false,
         message: error
-          ? error.message
+          ? notFound
+            ? '가입되지 않은 이메일입니다.'
+            : error.message
           : '비밀번호 재설정 링크를 이메일로 전송했습니다. 메일을 확인해 주세요.',
       }));
     } catch {
@@ -533,7 +580,7 @@ export default function LoginPage() {
             >
               <button
                 type="button"
-                onClick={() => setActiveView('signup')}
+                onClick={() => switchView('signup')}
                 style={{
                   color: 'inherit',
                   textDecoration: 'none',
@@ -550,7 +597,7 @@ export default function LoginPage() {
               <span aria-hidden="true">|</span>
               <button
                 type="button"
-                onClick={() => setActiveView('password')}
+                onClick={() => switchView('password')}
                 style={{
                   color: 'inherit',
                   textDecoration: 'none',
@@ -738,7 +785,7 @@ export default function LoginPage() {
             <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '4px' }}>
               <button
                 type="button"
-                onClick={() => setActiveView('login')}
+                onClick={() => switchView('login')}
                 style={{
                   padding: '10px 12px',
                   borderRadius: '10px',
@@ -848,7 +895,7 @@ export default function LoginPage() {
             <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '4px' }}>
               <button
                 type="button"
-                onClick={() => setActiveView('login')}
+                onClick={() => switchView('login')}
                 style={{
                   padding: '10px 12px',
                   borderRadius: '10px',
