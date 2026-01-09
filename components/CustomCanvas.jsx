@@ -888,10 +888,6 @@ export default function CustomCanvas({
 
           {selectedIds.length >= 2 && (
             <div style={styles.multiBox}>
-              <div style={{ fontWeight: 900, marginBottom: 8 }}>
-                {t.selectedCount.replace('{n}', String(selectedIds.length))}
-              </div>
-
               <div style={styles.multiGrid}>
                 <button style={styles.actionBtn} onClick={alignLeft}>{t.left}</button>
                 <button style={styles.actionBtn} onClick={alignCenter}>{t.center}</button>
@@ -917,24 +913,10 @@ export default function CustomCanvas({
                 </button>
               </div>
 
-              <div style={{ fontSize: 12, opacity: 0.75, marginTop: 6 }}>
-                {t.multiHint}
-              </div>
-
               <hr style={{ margin: '12px 0', border: 'none', borderTop: '1px solid #eee' }} />
             </div>
           )}
-
-          {!selected ? (
-            <div style={{ fontSize: 13, opacity: 0.85, lineHeight: 1.5 }}>
-              {t.inspectorHelpTitle}
-              <div style={{ marginTop: 10, opacity: 0.9 }}>
-                {t.inspectorHelpLines.map((line, idx) => (
-                  <div key={idx}>{line}</div>
-                ))}
-              </div>
-            </div>
-          ) : (
+          {selected ? (
             <>
               <div style={styles.row}>
                 <div style={styles.label}>{t.type}</div>
@@ -1286,14 +1268,6 @@ function getTexts(lang) {
     deletePresetConfirm: '선택한 프리셋을 삭제할까요?',
 
     inspectorTitle: '속성',
-    inspectorHelpTitle: '속성 요소를 클릭하면 속성이 계속 표시돼요.',
-    inspectorHelpLines: [
-      '- Shift+클릭: 다중 선택',
-      '- Delete: 삭제',
-      '- 방향키: 이동 (Shift는 빠르게)',
-    ],
-    selectedCount: '선택: {n}개',
-    multiHint: '* Shift+클릭 다중선택 · 방향키 이동(Shift는 10px) · Delete 삭제',
 
     type: 'Type',
     textName: 'Text (Name)',
@@ -1365,10 +1339,6 @@ function getTexts(lang) {
     deletePresetConfirm: 'Delete selected preset?',
 
     inspectorTitle: 'Properties',
-    inspectorHelpTitle: '',
-    inspectorHelpLines: [],
-    selectedCount: 'Selected: {n}',
-    multiHint: '* Shift+Click multi · Arrow keys move (Shift = 10px) · Delete remove',
 
     type: 'Type',
     textName: 'Text (Name)',
