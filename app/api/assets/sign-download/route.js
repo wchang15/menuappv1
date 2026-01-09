@@ -46,9 +46,11 @@ async function fetchSupabaseUser(token) {
   return body?.user || null;
 }
 
-async function createSignedUploadUrl(bucket, objectPath, contentType) {
+async function createSignedDownloadUrl(bucket, objectPath) {
   const response = await fetch(
-    `${process.env.SUPABASE_URL}/storage/v1/object/upload/sign/${encodeURIComponent(bucket)}`,
+    `${process.env.SUPABASE_URL}/storage/v1/object/sign/${encodeURIComponent(bucket)}/${encodeURIComponent(
+      objectPath
+    )}`,
     {
       method: 'POST',
       headers: {
@@ -57,9 +59,7 @@ async function createSignedUploadUrl(bucket, objectPath, contentType) {
         apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
       },
       body: JSON.stringify({
-        objectName: objectPath,
-        expiresIn: 60 * 5, // 5 minutes
-        contentType,
+        expiresIn: 60 * 5,
       }),
       cache: 'no-store',
     }
@@ -67,33 +67,13 @@ async function createSignedUploadUrl(bucket, objectPath, contentType) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Failed to sign upload URL: ${response.status} ${response.statusText} ${errorText}`);
+    throw new Error(
+      `Failed to sign download URL: ${response.status} ${response.statusText} ${errorText}`
+    );
   }
 
   const body = await response.json();
   return body;
-}
-
-async function insertAssetMetadata(metadata) {
-  const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/assets`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-      apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-      Prefer: 'return=representation',
-    },
-    body: JSON.stringify(metadata),
-    cache: 'no-store',
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Failed to persist asset metadata: ${response.status} ${response.statusText} ${errorText}`);
-  }
-
-  const body = await response.json();
-  return Array.isArray(body) ? body[0] : body;
 }
 
 export async function POST(req) {
@@ -117,40 +97,25 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Invalid Supabase JWT' }, { status: 401 });
     }
 
-    const { filename, contentType, sizeBytes, assetKey } = await req.json();
-    if (!filename) {
-      return NextResponse.json({ error: 'filename is required' }, { status: 400 });
+    const { assetKey } = await req.json();
+    if (!assetKey) {
+      return NextResponse.json({ error: 'assetKey is required' }, { status: 400 });
     }
 
-    const sanitizedName = filename.replace(/[^\w.\-]/g, '_');
-    const safeAssetKey = assetKey ? String(assetKey).replace(/[^\w.\-]/g, '_') : null;
-    const objectPath = safeAssetKey
-      ? `${userId}/${safeAssetKey}`
-      : `${userId}/${Date.now()}-${sanitizedName}`;
+    const safeAssetKey = String(assetKey).replace(/[^\w.\-]/g, '_');
+    const objectPath = `${userId}/${safeAssetKey}`;
 
-    const signed = await createSignedUploadUrl('assets', objectPath, contentType);
-
-    const metadata = await insertAssetMetadata({
-      path: signed.path || objectPath,
-      filename: sanitizedName,
-      user_id: userId,
-      content_type: contentType || null,
-      size_bytes: sizeBytes || null,
-      upload_token: signed.token || null,
-      status: 'pending_upload',
-    });
+    const signed = await createSignedDownloadUrl('assets', objectPath);
 
     return NextResponse.json(
       {
-        uploadUrl: signed.signedUrl,
-        token: signed.token,
-        path: signed.path || objectPath,
-        metadata,
+        signedUrl: signed?.signedUrl,
+        path: signed?.path || objectPath,
       },
       { status: 200 }
     );
   } catch (error) {
-    console.error('Failed to create presigned upload URL', error);
+    console.error('Failed to create signed download URL', error);
     return NextResponse.json({ error: error.message || 'Unexpected error' }, { status: 500 });
   }
 }

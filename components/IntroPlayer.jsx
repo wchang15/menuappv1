@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { KEYS, loadBlob, saveBlob } from '@/lib/storage';
+import { downloadAssetBlob, uploadAsset } from '@/lib/cloudAssets';
 import { getCurrentUser } from '@/lib/session';
 
 const LANG_KEY = 'APP_LANG_V1';
+const INTRO_ASSET_KEY = 'intro-video';
 
 export default function IntroPlayer() {
   const router = useRouter();
@@ -51,7 +53,15 @@ export default function IntroPlayer() {
     (async () => {
       try {
         const blob = await loadBlob(KEYS.INTRO_VIDEO);
-        if (blob) setVideoBlob(blob);
+        if (blob) {
+          setVideoBlob(blob);
+        }
+
+        const remoteBlob = await downloadAssetBlob(INTRO_ASSET_KEY);
+        if (remoteBlob) {
+          await saveBlob(KEYS.INTRO_VIDEO, remoteBlob);
+          setVideoBlob(remoteBlob);
+        }
       } finally {
         setLoading(false);
       }
@@ -90,6 +100,11 @@ export default function IntroPlayer() {
 
   const upload = async (file) => {
     if (!file) return;
+    try {
+      await uploadAsset({ assetKey: INTRO_ASSET_KEY, file });
+    } catch (error) {
+      console.error(error);
+    }
     await saveBlob(KEYS.INTRO_VIDEO, file);
     setVideoBlob(file);
   };

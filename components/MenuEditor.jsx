@@ -4,6 +4,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { KEYS, loadBlob, saveBlob, loadJson, saveJson } from '@/lib/storage';
+import {
+  downloadAssetBlob,
+  downloadJsonAsset,
+  uploadAsset,
+  uploadJsonAsset,
+} from '@/lib/cloudAssets';
 import { clearCurrentUser, getCurrentUser } from '@/lib/session';
 import { supabase } from '@/lib/supabaseClient';
 import CustomCanvas from './CustomCanvas';
@@ -43,6 +49,13 @@ const MAX_PHOTOS = 8;
 const BG_OVERRIDES_KEY = 'MENU_BG_OVERRIDES_V1';
 // 각 페이지 blob 키: `${KEYS.MENU_BG}__P${page}`
 const bgPageKey = (page) => `${KEYS.MENU_BG}__P${page}`;
+const ASSET_KEYS = {
+  INTRO_VIDEO: 'intro-video',
+  MENU_BG: 'menu-bg',
+  MENU_LAYOUT: (language) => `menu-layout-${language || 'en'}`,
+  MENU_BG_OVERRIDES: 'menu-bg-overrides',
+  MENU_BG_PAGE: (page) => `menu-bg-page-${page}`,
+};
 
 // ✅ 보기모드 페이지 전환 튜닝
 const TURN_ANIM_MS = 320;
@@ -357,7 +370,30 @@ export default function MenuEditor() {
             const blob = await loadBlob(bgPageKey(pn));
             if (blob) map[pn] = blob;
           }
-          setBgOverrides(map);
+          if (Object.keys(map).length) setBgOverrides(map);
+
+          const remoteBg = await downloadAssetBlob(ASSET_KEYS.MENU_BG);
+          if (remoteBg) {
+            await saveBlob(KEYS.MENU_BG, remoteBg);
+            setBgBlob(remoteBg);
+          }
+
+          const remoteOverrides = await downloadJsonAsset(ASSET_KEYS.MENU_BG_OVERRIDES);
+          if (remoteOverrides !== null) {
+            const remotePages = Object.keys(remoteOverrides || {});
+            await saveJson(BG_OVERRIDES_KEY, remoteOverrides || {});
+            const remoteMap = {};
+            for (const p of remotePages) {
+              const pn = Number(p);
+              if (!Number.isFinite(pn) || pn < 1) continue;
+              const remoteBlob = await downloadAssetBlob(ASSET_KEYS.MENU_BG_PAGE(pn));
+              if (remoteBlob) {
+                await saveBlob(bgPageKey(pn), remoteBlob);
+                remoteMap[pn] = remoteBlob;
+              }
+            }
+            setBgOverrides(remoteMap);
+          }
         } catch {}
       } catch {}
     })();
@@ -391,7 +427,8 @@ export default function MenuEditor() {
         const key = menuLayoutKey(lang);
         const saved = await loadJson(key);
         const legacy = saved ? null : await loadJson(KEYS.MENU_LAYOUT);
-        const lay = saved || legacy || DEFAULT_LAYOUT;
+        const remote = await downloadJsonAsset(ASSET_KEYS.MENU_LAYOUT(lang));
+        const lay = remote || saved || legacy || DEFAULT_LAYOUT;
 
         const safeLay = {
           ...DEFAULT_LAYOUT,
@@ -400,7 +437,7 @@ export default function MenuEditor() {
         };
         setLayout(safeLay);
 
-        if (!saved && legacy) {
+        if (remote || legacy || !saved) {
           await saveJson(key, safeLay);
         }
 
@@ -528,53 +565,20 @@ export default function MenuEditor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bgUrl]);
 
-  const uploadAssetToCloud = async (file) => {
-    const { data } = await supabase.auth.getSession();
-    const token = data?.session?.access_token;
-
-    if (!token) {
-      throw new Error('로그인이 필요합니다. 다시 로그인해 주세요.');
-    }
+  const uploadAssetToCloud = async (file, assetKey) => {
+    if (!file || !assetKey) return null;
 
     setAssetUploading(true);
     setAssetUploadMessage('업로드 URL 생성 중...');
 
     try {
-      const presignResponse = await fetch('/api/assets/presign', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          filename: file.name,
-          contentType: file.type || 'application/octet-stream',
-          sizeBytes: file.size,
-        }),
+      const path = await uploadAsset({
+        assetKey,
+        file,
+        contentType: file.type || 'application/octet-stream',
       });
-
-      if (!presignResponse.ok) {
-        const errBody = await presignResponse.json().catch(() => null);
-        throw new Error(errBody?.error || '업로드 URL 생성에 실패했습니다.');
-      }
-
-      const presign = await presignResponse.json();
-      setAssetUploadMessage('스토리지에 업로드 중...');
-
-      const uploadResponse = await fetch(presign.uploadUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': file.type || 'application/octet-stream',
-        },
-        body: file,
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error('파일 업로드에 실패했습니다.');
-      }
-
       setAssetUploadMessage('클라우드 업로드 완료!');
-      return presign.path;
+      return path;
     } catch (error) {
       setAssetUploadMessage(error.message || '업로드 중 문제가 발생했습니다.');
       throw error;
@@ -586,7 +590,7 @@ export default function MenuEditor() {
   const uploadBg = async (file) => {
     if (!file) return;
     try {
-      await uploadAssetToCloud(file);
+      await uploadAssetToCloud(file, ASSET_KEYS.MENU_BG);
     } catch (e) {
       console.error(e);
     }
@@ -602,7 +606,7 @@ export default function MenuEditor() {
     if (!file) return;
 
     try {
-      await uploadAssetToCloud(file);
+      await uploadAssetToCloud(file, ASSET_KEYS.INTRO_VIDEO);
     } catch (e) {
       console.error(e);
     }
@@ -623,7 +627,7 @@ export default function MenuEditor() {
     if (!file || !Number.isFinite(p) || p < 1) return;
 
     try {
-      await uploadAssetToCloud(file);
+      await uploadAssetToCloud(file, ASSET_KEYS.MENU_BG_PAGE(p));
     } catch (e) {
       console.error(e);
     }
@@ -636,9 +640,12 @@ export default function MenuEditor() {
       const nextIndex = { ...(await loadJson(BG_OVERRIDES_KEY)) };
       nextIndex[p] = true;
       await saveJson(BG_OVERRIDES_KEY, nextIndex);
+      await uploadJsonAsset({ assetKey: ASSET_KEYS.MENU_BG_OVERRIDES, data: nextIndex });
     } catch {
       try {
-        await saveJson(BG_OVERRIDES_KEY, { [p]: true });
+        const nextIndex = { [p]: true };
+        await saveJson(BG_OVERRIDES_KEY, nextIndex);
+        await uploadJsonAsset({ assetKey: ASSET_KEYS.MENU_BG_OVERRIDES, data: nextIndex });
       } catch {}
     }
   };
@@ -659,6 +666,7 @@ export default function MenuEditor() {
       const nextIdx = { ...(idx || {}) };
       delete nextIdx[p];
       await saveJson(BG_OVERRIDES_KEY, nextIdx);
+      await uploadJsonAsset({ assetKey: ASSET_KEYS.MENU_BG_OVERRIDES, data: nextIdx });
     } catch {}
   };
 
@@ -1048,6 +1056,11 @@ export default function MenuEditor() {
     const next = { ...layout };
     setLayout(next);
     await saveJson(menuLayoutKey(lang), next);
+    try {
+      await uploadJsonAsset({ assetKey: ASSET_KEYS.MENU_LAYOUT(lang), data: next });
+    } catch (error) {
+      console.error(error);
+    }
 
     setPreview(false);
     setEdit(false);
