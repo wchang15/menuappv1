@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { KEYS, loadBlob, saveBlob } from '@/lib/storage';
 import { getCurrentUser } from '@/lib/session';
 
+const LANG_KEY = 'APP_LANG_V1';
+
 export default function IntroPlayer() {
   const router = useRouter();
   const videoRef = useRef(null);
@@ -14,6 +16,13 @@ export default function IntroPlayer() {
   const [muted, setMuted] = useState(true); // 처음엔 음소거
   const [loading, setLoading] = useState(true);
   const [userReady, setUserReady] = useState(false);
+  const [lang, setLang] = useState('en');
+
+  const T = {
+    soundOn: lang === 'ko' ? '소리 켜기' : 'Sound On',
+    soundOff: lang === 'ko' ? '소리 끄기' : 'Sound Off',
+    goMenu: lang === 'ko' ? '메뉴로' : 'Go to Menu',
+  };
 
   useEffect(() => {
     const current = getCurrentUser();
@@ -23,6 +32,17 @@ export default function IntroPlayer() {
     }
     setUserReady(true);
   }, [router]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(LANG_KEY);
+      if (saved === 'en' || saved === 'ko') {
+        setLang(saved);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
 
   // 저장된 비디오 로드
@@ -76,6 +96,15 @@ export default function IntroPlayer() {
 
   const goMenu = () => router.push('/menu');
 
+  const setLanguage = (nextLang) => {
+    setLang(nextLang);
+    try {
+      localStorage.setItem(LANG_KEY, nextLang);
+    } catch {
+      // ignore
+    }
+  };
+
   // 🔁 Sound On / Off 토글
   const toggleSound = async () => {
     const v = videoRef.current;
@@ -108,6 +137,32 @@ export default function IntroPlayer() {
 
   return (
     <div style={styles.container}>
+      <div style={styles.langWrap}>
+        <div style={styles.langRow}>
+          <button
+            style={{
+              ...styles.langButton,
+              ...(lang === 'en' ? styles.langButtonActive : {}),
+            }}
+            onClick={() => setLanguage('en')}
+            aria-label="English"
+            title="English"
+          >
+            🇺🇸
+          </button>
+          <button
+            style={{
+              ...styles.langButton,
+              ...(lang === 'ko' ? styles.langButtonActive : {}),
+            }}
+            onClick={() => setLanguage('ko')}
+            aria-label="한국어"
+            title="한국어"
+          >
+            🇰🇷
+          </button>
+        </div>
+      </div>
       {loading ? null : !videoUrl ? (
         <div style={styles.uploadBox}>
           <input type="file" accept="video/*" onChange={(e) => upload(e.target.files?.[0])} />
@@ -129,12 +184,12 @@ export default function IntroPlayer() {
           {/* 오른쪽 하단 버튼 */}
           <div style={styles.actionRow}>
             <button onClick={toggleSound} style={styles.soundBtn}>
-              {muted ? 'Sound On' : 'Sound Off'}
+              {muted ? T.soundOn : T.soundOff}
             </button>
 
             {/* ✅ SKIP 대신 Go to Menu */}
             <button onClick={goMenu} style={styles.menuBtn}>
-              Go to Menu
+              {T.goMenu}
             </button>
           </div>
         </>
@@ -153,6 +208,40 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  langWrap: {
+    position: 'fixed',
+    top: 'calc(env(safe-area-inset-top, 0px) + 32px)',
+    right: 'calc(env(safe-area-inset-right, 0px) + 20px)',
+    zIndex: 99999,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 10,
+    alignItems: 'flex-end',
+  },
+  langRow: {
+    display: 'flex',
+    gap: 12,
+    alignItems: 'center',
+  },
+  langButton: {
+    width: 56,
+    height: 44,
+    borderRadius: 14,
+    border: '1px solid rgba(255,255,255,0.6)',
+    background: 'rgba(0,0,0,0.48)',
+    cursor: 'pointer',
+    fontSize: 24,
+    lineHeight: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 6px 18px rgba(0,0,0,0.3)',
+    padding: 0,
+  },
+  langButtonActive: {
+    border: '1px solid rgba(255,255,255,0.95)',
+    background: 'rgba(0,0,0,0.65)',
   },
   video: {
     width: '100%',
