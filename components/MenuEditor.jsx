@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { KEYS, loadBlob, saveBlob, loadJson, saveJson } from '@/lib/storage';
 import { clearCurrentUser, getCurrentUser } from '@/lib/session';
@@ -369,7 +369,7 @@ export default function MenuEditor() {
     }
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!userReady) return;
     if (pathname !== '/menu') return;
     loadBackgrounds();
