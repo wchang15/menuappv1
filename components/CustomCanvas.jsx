@@ -1365,12 +1365,8 @@ function getTexts(lang) {
     deletePresetConfirm: 'Delete selected preset?',
 
     inspectorTitle: 'Properties',
-    inspectorHelpTitle: 'Click an item to keep properties visible.',
-    inspectorHelpLines: [
-      '- Shift+Click: multi-select',
-      '- Delete: remove',
-      '- Arrow keys: move (Shift = faster)',
-    ],
+    inspectorHelpTitle: '',
+    inspectorHelpLines: [],
     selectedCount: 'Selected: {n}',
     multiHint: '* Shift+Click multi · Arrow keys move (Shift = 10px) · Delete remove',
 
