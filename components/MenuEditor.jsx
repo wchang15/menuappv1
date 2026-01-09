@@ -239,6 +239,7 @@ export default function MenuEditor() {
   const [dragOver, setDragOver] = useState(false);
   const [loading, setLoading] = useState(true);
   const [bgLoading, setBgLoading] = useState(true);
+  const [bgAssetsReady, setBgAssetsReady] = useState(false);
   const [assetUploading, setAssetUploading] = useState(false);
   const [assetUploadMessage, setAssetUploadMessage] = useState('');
 
@@ -343,6 +344,8 @@ export default function MenuEditor() {
   useEffect(() => {
     if (!userReady) return;
     (async () => {
+      setBgLoading(true);
+      setBgAssetsReady(false);
       try {
         const bg = await loadBlob(KEYS.MENU_BG);
         if (bg) setBgBlob(bg);
@@ -521,6 +524,36 @@ export default function MenuEditor() {
           URL.revokeObjectURL(u);
         } catch {}
       }
+    };
+  }, [bgUrl, bgOverrideUrls]);
+
+  // ✅ 배경 이미지 로드 완료까지 대기(플래시 방지)
+  useEffect(() => {
+    if (!bgUrl) {
+      setBgAssetsReady(false);
+      return;
+    }
+
+    let cancelled = false;
+    const urls = [bgUrl, ...Object.values(bgOverrideUrls || {})].filter(Boolean);
+
+    setBgAssetsReady(false);
+    Promise.all(
+      urls.map(
+        (url) =>
+          new Promise((resolve) => {
+            const img = new Image();
+            img.onload = resolve;
+            img.onerror = resolve;
+            img.src = url;
+          })
+      )
+    ).then(() => {
+      if (!cancelled) setBgAssetsReady(true);
+    });
+
+    return () => {
+      cancelled = true;
     };
   }, [bgUrl, bgOverrideUrls]);
 
@@ -1615,7 +1648,7 @@ export default function MenuEditor() {
 
   return (
     <div style={styles.container}>
-      {loading || bgLoading ? (
+      {loading || bgLoading || (bgUrl && !bgAssetsReady) ? (
         <div style={styles.loadingScreen} aria-label="loading-screen" />
       ) : !bgUrl ? (
         <div style={styles.setupWrap}>
