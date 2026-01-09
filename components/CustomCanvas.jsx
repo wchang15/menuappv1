@@ -20,8 +20,7 @@ const SHAPES = [
 
 const PRESET_KEY = 'MENU_CUSTOM_PRESETS_V1';
 const SNAP_THRESHOLD = 8;
-const INSPECTOR_AUTOHIDE_MS = 5000;
-const INSPECTOR_ENABLED = false;
+const INSPECTOR_ENABLED = true;
 
 // ✅ 드래그 중 자동 스크롤
 const AUTO_SCROLL_ZONE = 80;
@@ -200,12 +199,6 @@ export default function CustomCanvas({
     setInspectorVisible(true);
     hideReasonRef.current = 'select';
     clearInspectorHideTimer();
-    hideTimerRef.current = setTimeout(() => {
-      if (hideReasonRef.current === 'select') {
-        setInspectorVisible(false);
-        setSelectedIds([]);
-      }
-    }, INSPECTOR_AUTOHIDE_MS);
   };
 
   const showInspectorByAdd = () => {
@@ -888,10 +881,6 @@ export default function CustomCanvas({
 
           {selectedIds.length >= 2 && (
             <div style={styles.multiBox}>
-              <div style={{ fontWeight: 900, marginBottom: 8 }}>
-                {t.selectedCount.replace('{n}', String(selectedIds.length))}
-              </div>
-
               <div style={styles.multiGrid}>
                 <button style={styles.actionBtn} onClick={alignLeft}>{t.left}</button>
                 <button style={styles.actionBtn} onClick={alignCenter}>{t.center}</button>
@@ -917,24 +906,10 @@ export default function CustomCanvas({
                 </button>
               </div>
 
-              <div style={{ fontSize: 12, opacity: 0.75, marginTop: 6 }}>
-                {t.multiHint}
-              </div>
-
               <hr style={{ margin: '12px 0', border: 'none', borderTop: '1px solid #eee' }} />
             </div>
           )}
-
-          {!selected ? (
-            <div style={{ fontSize: 13, opacity: 0.85, lineHeight: 1.5 }}>
-              {t.inspectorHelpTitle}
-              <div style={{ marginTop: 10, opacity: 0.9 }}>
-                {t.inspectorHelpLines.map((line, idx) => (
-                  <div key={idx}>{line}</div>
-                ))}
-              </div>
-            </div>
-          ) : (
+          {selected ? (
             <>
               <div style={styles.row}>
                 <div style={styles.label}>{t.type}</div>
@@ -966,6 +941,17 @@ export default function CustomCanvas({
                   onChange={(e) => updateItem(selected.id, { opacity: Number(e.target.value) })}
                   style={{ width: '100%' }}
                 />
+              </div>
+
+              <div style={styles.row}>
+                <div style={styles.label}>{t.border}</div>
+                <button
+                  style={toggleBtn(!!selected.showBorder)}
+                  onClick={() => updateItem(selected.id, { showBorder: !selected.showBorder })}
+                  disabled={selected.locked}
+                >
+                  {selected.showBorder ? t.borderOn : t.borderOff}
+                </button>
               </div>
 
               {selected.type === 'text' && (
@@ -1127,7 +1113,7 @@ export default function CustomCanvas({
                 </button>
               </div>
             </>
-          )}
+          ) : null}
         </div>
       )}
     </>
@@ -1151,11 +1137,15 @@ export default function CustomCanvas({
 }
 
 function ItemBox({ item, selected }) {
+  const border = selected
+    ? styles.itemBoxSelected.border
+    : (item.showBorder ? styles.itemBox.border : '2px solid transparent');
   const base = {
     ...styles.itemBox,
     ...(selected ? styles.itemBoxSelected : {}),
     opacity: item.opacity ?? 1,
     cursor: item.locked ? 'not-allowed' : 'move',
+    border,
   };
 
   if (item.type === 'image') {
@@ -1286,14 +1276,6 @@ function getTexts(lang) {
     deletePresetConfirm: '선택한 프리셋을 삭제할까요?',
 
     inspectorTitle: '속성',
-    inspectorHelpTitle: '속성 요소를 클릭하면 속성이 계속 표시돼요.',
-    inspectorHelpLines: [
-      '- Shift+클릭: 다중 선택',
-      '- Delete: 삭제',
-      '- 방향키: 이동 (Shift는 빠르게)',
-    ],
-    selectedCount: '선택: {n}개',
-    multiHint: '* Shift+클릭 다중선택 · 방향키 이동(Shift는 10px) · Delete 삭제',
 
     type: 'Type',
     textName: 'Text (Name)',
@@ -1303,6 +1285,10 @@ function getTexts(lang) {
     locked: 'Locked',
     lockedOn: 'Locked',
     lockedOff: 'Unlocked',
+
+    border: '테두리',
+    borderOn: '켜짐',
+    borderOff: '꺼짐',
 
     opacity: 'Opacity',
     text: 'Text',
@@ -1365,14 +1351,6 @@ function getTexts(lang) {
     deletePresetConfirm: 'Delete selected preset?',
 
     inspectorTitle: 'Properties',
-    inspectorHelpTitle: 'Click an item to keep properties visible.',
-    inspectorHelpLines: [
-      '- Shift+Click: multi-select',
-      '- Delete: remove',
-      '- Arrow keys: move (Shift = faster)',
-    ],
-    selectedCount: 'Selected: {n}',
-    multiHint: '* Shift+Click multi · Arrow keys move (Shift = 10px) · Delete remove',
 
     type: 'Type',
     textName: 'Text (Name)',
@@ -1382,6 +1360,10 @@ function getTexts(lang) {
     locked: 'Locked',
     lockedOn: 'Locked',
     lockedOff: 'Unlocked',
+
+    border: 'Border',
+    borderOn: 'On',
+    borderOff: 'Off',
 
     opacity: 'Opacity',
     text: 'Text',

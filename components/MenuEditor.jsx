@@ -10,6 +10,7 @@ import CustomCanvas from './CustomCanvas';
 import TemplateCanvas from './TemplateCanvas';
 
 const DEFAULT_LAYOUT = { mode: null, templateId: null, items: [], templateData: null };
+const menuLayoutKey = (language) => `${KEYS.MENU_LAYOUT}_${language || 'en'}`;
 
 // ✅ 옵션들
 const SECRET_TAPS = 5;
@@ -343,15 +344,7 @@ export default function MenuEditor() {
     (async () => {
       try {
         const bg = await loadBlob(KEYS.MENU_BG);
-        const lay = (await loadJson(KEYS.MENU_LAYOUT)) || DEFAULT_LAYOUT;
         if (bg) setBgBlob(bg);
-
-        const safeLay = {
-          ...DEFAULT_LAYOUT,
-          ...(lay || {}),
-          templateData: lay?.templateData ?? null,
-        };
-        setLayout(safeLay);
 
         // ✅ 페이지별 배경 오버라이드 로드
         try {
@@ -366,12 +359,7 @@ export default function MenuEditor() {
           }
           setBgOverrides(map);
         } catch {}
-
-      // ✅ 로드 직후 스크롤 잔상 방지
-      setTimeout(() => hardResetScrollTop('auto'), 0);
-      } finally {
-        setLoading(false);
-      }
+      } catch {}
     })();
 
     // ✅ PIN 로드/초기화 (사용자별)
@@ -386,13 +374,43 @@ export default function MenuEditor() {
     } catch {
       setPin(DEFAULT_PIN);
     }
+  }, [userReady, pinStorageKey]);
 
-    // ✅ 언어 로드
+  useEffect(() => {
     try {
       const saved = localStorage.getItem(LANG_KEY);
       if (saved === 'ko' || saved === 'en') setLang(saved);
     } catch {}
-  }, [userReady, pinStorageKey]);
+  }, []);
+
+  useEffect(() => {
+    if (!userReady) return;
+    (async () => {
+      setLoading(true);
+      try {
+        const key = menuLayoutKey(lang);
+        const saved = await loadJson(key);
+        const legacy = saved ? null : await loadJson(KEYS.MENU_LAYOUT);
+        const lay = saved || legacy || DEFAULT_LAYOUT;
+
+        const safeLay = {
+          ...DEFAULT_LAYOUT,
+          ...(lay || {}),
+          templateData: lay?.templateData ?? null,
+        };
+        setLayout(safeLay);
+
+        if (!saved && legacy) {
+          await saveJson(key, safeLay);
+        }
+
+        // ✅ 로드 직후 스크롤 잔상 방지
+        setTimeout(() => hardResetScrollTop('auto'), 0);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [userReady, lang]);
 
   // ✅ 보기 모드에서 텍스트 길게 눌러도 선택/터치 콜아웃이 뜨지 않도록 body 단위 차단
   useEffect(() => {
@@ -1029,7 +1047,7 @@ export default function MenuEditor() {
   const handleSaveAll = async () => {
     const next = { ...layout };
     setLayout(next);
-    await saveJson(KEYS.MENU_LAYOUT, next);
+    await saveJson(menuLayoutKey(lang), next);
 
     setPreview(false);
     setEdit(false);
@@ -1163,7 +1181,7 @@ export default function MenuEditor() {
             onChange={(nextData) => {
               const next = { ...layout, mode: 'template', templateData: nextData };
               setLayout(next);
-              saveJson(KEYS.MENU_LAYOUT, next);
+              saveJson(menuLayoutKey(lang), next);
             }}
             onCancel={() => {
               setPreview(false);
@@ -1194,7 +1212,7 @@ export default function MenuEditor() {
             onSave={(items) => {
               const next = { ...layout, mode: 'custom', items };
               setLayout(next);
-              saveJson(KEYS.MENU_LAYOUT, next);
+              saveJson(menuLayoutKey(lang), next);
 
               setPreview(false);
               setEdit(false);
@@ -1381,7 +1399,7 @@ export default function MenuEditor() {
                   const next = { mode: 'template', templateId: fullId, templateData: data, items: [] };
 
                   setLayout(next);
-                  saveJson(KEYS.MENU_LAYOUT, next);
+                  saveJson(menuLayoutKey(lang), next);
                   setEdit(true);
                   setPreview(false);
                   setPageIndex(1);
@@ -1396,7 +1414,7 @@ export default function MenuEditor() {
                 onClick={() => {
                   const next = { ...layout, mode: 'custom', templateId: null, templateData: null };
                   setLayout(next);
-                  saveJson(KEYS.MENU_LAYOUT, next);
+                  saveJson(menuLayoutKey(lang), next);
                   setEditModeModalOpen(false);
                   setEdit(true);
                   setPreview(false);
@@ -1863,7 +1881,7 @@ export default function MenuEditor() {
                   onChange={(nextData) => {
                     const next = { ...layout, mode: 'template', templateData: nextData };
                     setLayout(next);
-                    saveJson(KEYS.MENU_LAYOUT, next);
+                    saveJson(menuLayoutKey(lang), next);
                   }}
                   onCancel={() => {
                     setPreview(false);
@@ -1891,7 +1909,7 @@ export default function MenuEditor() {
                   onSave={(items) => {
                     const next = { ...layout, mode: 'custom', items };
                     setLayout(next);
-                    saveJson(KEYS.MENU_LAYOUT, next);
+                    saveJson(menuLayoutKey(lang), next);
 
                     setPreview(false);
                     setEdit(false);
@@ -1937,7 +1955,7 @@ export default function MenuEditor() {
                           items: [],
                         };
                         setLayout(next);
-                        saveJson(KEYS.MENU_LAYOUT, next);
+                        saveJson(menuLayoutKey(lang), next);
 
                         setEdit(true);
                         setPreview(false);
@@ -1954,7 +1972,7 @@ export default function MenuEditor() {
                       onClick={() => {
                         const next = { ...layout, mode: 'custom', templateId: null, templateData: null };
                         setLayout(next);
-                        saveJson(KEYS.MENU_LAYOUT, next);
+                        saveJson(menuLayoutKey(lang), next);
                         setEdit(true);
                         setPreview(false);
                         setPageIndex(1);
@@ -1999,7 +2017,7 @@ export default function MenuEditor() {
                           items: [],
                         };
                         setLayout(next);
-                        saveJson(KEYS.MENU_LAYOUT, next);
+                        saveJson(menuLayoutKey(lang), next);
                         setEditModeModalOpen(false);
                         setEdit(true);
                         setPreview(false);
@@ -2016,7 +2034,7 @@ export default function MenuEditor() {
                       onClick={() => {
                         const next = { ...layout, mode: 'custom', templateId: null, templateData: null };
                         setLayout(next);
-                        saveJson(KEYS.MENU_LAYOUT, next);
+                        saveJson(menuLayoutKey(lang), next);
                         setEditModeModalOpen(false);
                         setEdit(true);
                         setPreview(false);
