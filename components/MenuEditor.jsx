@@ -372,31 +372,27 @@ export default function MenuEditor() {
           }
           if (Object.keys(map).length) setBgOverrides(map);
 
-          if (!bg) {
-            const remoteBg = await downloadAssetBlob(ASSET_KEYS.MENU_BG);
-            if (remoteBg) {
-              await saveBlob(KEYS.MENU_BG, remoteBg);
-              setBgBlob(remoteBg);
-            }
+          const remoteBg = await downloadAssetBlob(ASSET_KEYS.MENU_BG);
+          if (remoteBg) {
+            await saveBlob(KEYS.MENU_BG, remoteBg);
+            setBgBlob(remoteBg);
           }
 
-          if (!pages.length) {
-            const remoteOverrides = await downloadJsonAsset(ASSET_KEYS.MENU_BG_OVERRIDES);
+          const remoteOverrides = await downloadJsonAsset(ASSET_KEYS.MENU_BG_OVERRIDES);
+          if (remoteOverrides !== null) {
             const remotePages = Object.keys(remoteOverrides || {});
-            if (remotePages.length) {
-              await saveJson(BG_OVERRIDES_KEY, remoteOverrides);
-              const remoteMap = {};
-              for (const p of remotePages) {
-                const pn = Number(p);
-                if (!Number.isFinite(pn) || pn < 1) continue;
-                const remoteBlob = await downloadAssetBlob(ASSET_KEYS.MENU_BG_PAGE(pn));
-                if (remoteBlob) {
-                  await saveBlob(bgPageKey(pn), remoteBlob);
-                  remoteMap[pn] = remoteBlob;
-                }
+            await saveJson(BG_OVERRIDES_KEY, remoteOverrides || {});
+            const remoteMap = {};
+            for (const p of remotePages) {
+              const pn = Number(p);
+              if (!Number.isFinite(pn) || pn < 1) continue;
+              const remoteBlob = await downloadAssetBlob(ASSET_KEYS.MENU_BG_PAGE(pn));
+              if (remoteBlob) {
+                await saveBlob(bgPageKey(pn), remoteBlob);
+                remoteMap[pn] = remoteBlob;
               }
-              if (Object.keys(remoteMap).length) setBgOverrides(remoteMap);
             }
+            setBgOverrides(remoteMap);
           }
         } catch {}
       } catch {}
@@ -431,9 +427,8 @@ export default function MenuEditor() {
         const key = menuLayoutKey(lang);
         const saved = await loadJson(key);
         const legacy = saved ? null : await loadJson(KEYS.MENU_LAYOUT);
-        const remote =
-          saved || legacy ? null : await downloadJsonAsset(ASSET_KEYS.MENU_LAYOUT(lang));
-        const lay = saved || legacy || remote || DEFAULT_LAYOUT;
+        const remote = await downloadJsonAsset(ASSET_KEYS.MENU_LAYOUT(lang));
+        const lay = remote || saved || legacy || DEFAULT_LAYOUT;
 
         const safeLay = {
           ...DEFAULT_LAYOUT,
@@ -442,10 +437,7 @@ export default function MenuEditor() {
         };
         setLayout(safeLay);
 
-        if (!saved && legacy) {
-          await saveJson(key, safeLay);
-        }
-        if (!saved && !legacy && remote) {
+        if (remote || legacy || !saved) {
           await saveJson(key, safeLay);
         }
 

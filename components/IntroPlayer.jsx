@@ -55,7 +55,6 @@ export default function IntroPlayer() {
         const blob = await loadBlob(KEYS.INTRO_VIDEO);
         if (blob) {
           setVideoBlob(blob);
-          return;
         }
 
         const remoteBlob = await downloadAssetBlob(INTRO_ASSET_KEY);
