@@ -1,8 +1,8 @@
 
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { KEYS, loadBlob, saveBlob, loadJson, saveJson } from '@/lib/storage';
 import { clearCurrentUser, getCurrentUser } from '@/lib/session';
 import { supabase } from '@/lib/supabaseClient';
@@ -212,6 +212,7 @@ const tpBtn = {
 
 export default function MenuEditor() {
   const router = useRouter();
+  const pathname = usePathname();
 
   // ✅ 기본 배경(전체 페이지 default)
   const [bgBlob, setBgBlob] = useState(null);
@@ -341,35 +342,41 @@ export default function MenuEditor() {
     sc.scrollTo({ top: 0, behavior });
   };
 
+  const loadBackgrounds = useCallback(async () => {
+    setBgLoading(true);
+    setBgAssetsReady(false);
+    setBgBlob(null);
+    setBgOverrides({});
+    try {
+      const bg = await loadBlob(KEYS.MENU_BG);
+      if (bg) setBgBlob(bg);
+
+      // ✅ 페이지별 배경 오버라이드 로드
+      try {
+        const overrides = (await loadJson(BG_OVERRIDES_KEY)) || {};
+        const pages = Object.keys(overrides || {});
+        const map = {};
+        for (const p of pages) {
+          const pn = Number(p);
+          if (!Number.isFinite(pn) || pn < 1) continue;
+          const blob = await loadBlob(bgPageKey(pn));
+          if (blob) map[pn] = blob;
+        }
+        setBgOverrides(map);
+      } catch {}
+    } catch {} finally {
+      setBgLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!userReady) return;
-    (async () => {
-      setBgLoading(true);
-      setBgAssetsReady(false);
-      setBgBlob(null);
-      setBgOverrides({});
-      try {
-        const bg = await loadBlob(KEYS.MENU_BG);
-        if (bg) setBgBlob(bg);
+    if (pathname !== '/menu') return;
+    loadBackgrounds();
+  }, [userReady, pathname, loadBackgrounds]);
 
-        // ✅ 페이지별 배경 오버라이드 로드
-        try {
-          const overrides = (await loadJson(BG_OVERRIDES_KEY)) || {};
-          const pages = Object.keys(overrides || {});
-          const map = {};
-          for (const p of pages) {
-            const pn = Number(p);
-            if (!Number.isFinite(pn) || pn < 1) continue;
-            const blob = await loadBlob(bgPageKey(pn));
-            if (blob) map[pn] = blob;
-          }
-          setBgOverrides(map);
-        } catch {}
-      } catch {} finally {
-        setBgLoading(false);
-      }
-    })();
-
+  useEffect(() => {
+    if (!userReady) return;
     // ✅ PIN 로드/초기화 (사용자별)
     try {
       const stored = localStorage.getItem(pinStorageKey);
