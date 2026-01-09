@@ -203,6 +203,14 @@ export default function CustomCanvas({
     }
   };
 
+  useEffect(() => {
+    if (!selected) {
+      clearInspectorHideTimer();
+      hideReasonRef.current = null;
+      setInspectorVisible(false);
+    }
+  }, [selected]);
+
   const showInspectorBySelect = () => {
     if (!INSPECTOR_ENABLED) return;
     if (isPreview) return;
@@ -1313,14 +1321,14 @@ function getTexts(lang) {
 
     inspectorTitle: '속성',
 
-    type: 'Type',
-    textName: 'Text (Name)',
-    textPrice: 'Text (Price)',
-    photo: 'Photo',
+    type: '종류',
+    textName: '텍스트(메뉴명)',
+    textPrice: '텍스트(가격)',
+    photo: '사진',
 
-    locked: 'Locked',
-    lockedOn: 'Locked',
-    lockedOff: 'Unlocked',
+    locked: '잠금',
+    lockedOn: '잠금',
+    lockedOff: '해제',
 
     border: '테두리',
     borderOn: '켜짐',
@@ -1328,37 +1336,37 @@ function getTexts(lang) {
     borderColor: '테두리 색',
     transparent: '투명',
 
-    opacity: 'Opacity',
-    text: 'Text',
-    font: 'Font',
-    size: 'Size',
-    color: 'Color',
-    style: 'Style',
-    bold: 'Bold',
-    italic: 'Italic',
-    align: 'Align',
+    opacity: '투명도',
+    text: '텍스트',
+    font: '폰트',
+    size: '크기',
+    color: '색상',
+    style: '스타일',
+    bold: '굵게',
+    italic: '기울임',
+    align: '정렬',
 
-    shape: 'Shape',
-    radius: 'Radius',
-    fit: 'Fit',
+    shape: '모양',
+    radius: '둥근 정도',
+    fit: '맞춤',
     fitContain: 'Contain (전체 보이게)',
     fitCover: 'Cover (꽉 채우기)',
 
-    left: 'Left',
-    center: 'Center',
-    right: 'Right',
-    top: 'Top',
-    middle: 'Middle',
-    bottom: 'Bottom',
+    left: '왼쪽',
+    center: '가운데',
+    right: '오른쪽',
+    top: '위',
+    middle: '중간',
+    bottom: '아래',
 
-    group: 'Group',
-    ungroup: 'Ungroup',
-    duplicate: 'Duplicate',
-    bring: 'Bring +',
-    send: 'Send -',
-    lock: 'Lock',
-    unlock: 'Unlock',
-    delete: 'Delete',
+    group: '그룹',
+    ungroup: '그룹 해제',
+    duplicate: '복제',
+    bring: '앞으로',
+    send: '뒤로',
+    lock: '잠금',
+    unlock: '잠금 해제',
+    delete: '삭제',
 
     foodNameDefault: '음식 이름',
     priceDefault: '$9.99',
