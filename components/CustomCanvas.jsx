@@ -21,7 +21,7 @@ const SHAPES = [
 const PRESET_KEY = 'MENU_CUSTOM_PRESETS_V1';
 const SNAP_THRESHOLD = 8;
 const INSPECTOR_AUTOHIDE_MS = 5000;
-const INSPECTOR_ENABLED = false;
+const INSPECTOR_ENABLED = true;
 
 // ✅ 드래그 중 자동 스크롤
 const AUTO_SCROLL_ZONE = 80;
