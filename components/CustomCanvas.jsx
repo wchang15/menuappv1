@@ -1109,7 +1109,7 @@ export default function CustomCanvas({
                 </button>
               </div>
             </>
-          )}
+          ) : null}
         </div>
       )}
     </>
