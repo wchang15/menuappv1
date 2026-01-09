@@ -1,8 +1,8 @@
 
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { KEYS, loadBlob, saveBlob, loadJson, saveJson } from '@/lib/storage';
 import { clearCurrentUser, getCurrentUser } from '@/lib/session';
 import { supabase } from '@/lib/supabaseClient';
@@ -212,6 +212,7 @@ const tpBtn = {
 
 export default function MenuEditor() {
   const router = useRouter();
+  const pathname = usePathname();
 
   // ✅ 기본 배경(전체 페이지 default)
   const [bgBlob, setBgBlob] = useState(null);
@@ -238,6 +239,8 @@ export default function MenuEditor() {
 
   const [dragOver, setDragOver] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [bgLoading, setBgLoading] = useState(true);
+  const [bgAssetsReady, setBgAssetsReady] = useState(false);
   const [assetUploading, setAssetUploading] = useState(false);
   const [assetUploadMessage, setAssetUploadMessage] = useState('');
 
@@ -339,29 +342,41 @@ export default function MenuEditor() {
     sc.scrollTo({ top: 0, behavior });
   };
 
+  const loadBackgrounds = useCallback(async () => {
+    setBgLoading(true);
+    setBgAssetsReady(false);
+    setBgBlob(null);
+    setBgOverrides({});
+    try {
+      const bg = await loadBlob(KEYS.MENU_BG);
+      if (bg) setBgBlob(bg);
+
+      // ✅ 페이지별 배경 오버라이드 로드
+      try {
+        const overrides = (await loadJson(BG_OVERRIDES_KEY)) || {};
+        const pages = Object.keys(overrides || {});
+        const map = {};
+        for (const p of pages) {
+          const pn = Number(p);
+          if (!Number.isFinite(pn) || pn < 1) continue;
+          const blob = await loadBlob(bgPageKey(pn));
+          if (blob) map[pn] = blob;
+        }
+        setBgOverrides(map);
+      } catch {}
+    } catch {} finally {
+      setBgLoading(false);
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!userReady) return;
+    if (pathname !== '/menu') return;
+    loadBackgrounds();
+  }, [userReady, pathname, loadBackgrounds]);
+
   useEffect(() => {
     if (!userReady) return;
-    (async () => {
-      try {
-        const bg = await loadBlob(KEYS.MENU_BG);
-        if (bg) setBgBlob(bg);
-
-        // ✅ 페이지별 배경 오버라이드 로드
-        try {
-          const overrides = (await loadJson(BG_OVERRIDES_KEY)) || {};
-          const pages = Object.keys(overrides || {});
-          const map = {};
-          for (const p of pages) {
-            const pn = Number(p);
-            if (!Number.isFinite(pn) || pn < 1) continue;
-            const blob = await loadBlob(bgPageKey(pn));
-            if (blob) map[pn] = blob;
-          }
-          setBgOverrides(map);
-        } catch {}
-      } catch {}
-    })();
-
     // ✅ PIN 로드/초기화 (사용자별)
     try {
       const stored = localStorage.getItem(pinStorageKey);
@@ -518,6 +533,36 @@ export default function MenuEditor() {
           URL.revokeObjectURL(u);
         } catch {}
       }
+    };
+  }, [bgUrl, bgOverrideUrls]);
+
+  // ✅ 배경 이미지 로드 완료까지 대기(플래시 방지)
+  useEffect(() => {
+    if (!bgUrl) {
+      setBgAssetsReady(false);
+      return;
+    }
+
+    let cancelled = false;
+    const urls = [bgUrl, ...Object.values(bgOverrideUrls || {})].filter(Boolean);
+
+    setBgAssetsReady(false);
+    Promise.all(
+      urls.map(
+        (url) =>
+          new Promise((resolve) => {
+            const img = new Image();
+            img.onload = resolve;
+            img.onerror = resolve;
+            img.src = url;
+          })
+      )
+    ).then(() => {
+      if (!cancelled) setBgAssetsReady(true);
+    });
+
+    return () => {
+      cancelled = true;
     };
   }, [bgUrl, bgOverrideUrls]);
 
@@ -1612,7 +1657,9 @@ export default function MenuEditor() {
 
   return (
     <div style={styles.container}>
-      {loading ? null : !bgUrl ? (
+      {loading || bgLoading || (bgUrl && !bgAssetsReady) ? (
+        <div style={styles.loadingScreen} aria-label="loading-screen" />
+      ) : !bgUrl ? (
         <div style={styles.setupWrap}>
           <div style={styles.setupCard}>
             <div style={styles.title}>{T.pickBgTitle}</div>
@@ -2148,6 +2195,11 @@ function makeInitialTemplateData(fullId, lang) {
 
 const styles = {
   container: { width: '100%', height: '100vh', background: '#111' },
+  loadingScreen: {
+    width: '100%',
+    height: '100%',
+    background: '#111',
+  },
 
   setupWrap: {
     width: '100%',
