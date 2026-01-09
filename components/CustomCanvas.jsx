@@ -21,6 +21,7 @@ const SHAPES = [
 const PRESET_KEY = 'MENU_CUSTOM_PRESETS_V1';
 const SNAP_THRESHOLD = 8;
 const INSPECTOR_ENABLED = true;
+const DEFAULT_BORDER_COLOR = 'rgba(255,255,255,0.22)';
 
 // ✅ 드래그 중 자동 스크롤
 const AUTO_SCROLL_ZONE = 80;
@@ -81,6 +82,15 @@ export default function CustomCanvas({
     () => safeItems.find((it) => it.id === selectedId) || null,
     [safeItems, selectedId]
   );
+  const resolvedBorderColor = useMemo(
+    () => (selected ? resolveBorderColor(selected) : DEFAULT_BORDER_COLOR),
+    [selected]
+  );
+  const borderColorValue = useMemo(
+    () => normalizeColorInputValue(resolvedBorderColor),
+    [resolvedBorderColor]
+  );
+  const isBorderTransparent = resolvedBorderColor === 'transparent';
 
   const isEdit = !!editing;
   const isPreview = uiMode === 'preview';
@@ -944,14 +954,27 @@ export default function CustomCanvas({
               </div>
 
               <div style={styles.row}>
-                <div style={styles.label}>{t.border}</div>
-                <button
-                  style={toggleBtn(!!selected.showBorder)}
-                  onClick={() => updateItem(selected.id, { showBorder: !selected.showBorder })}
-                  disabled={selected.locked}
-                >
-                  {selected.showBorder ? t.borderOn : t.borderOff}
-                </button>
+                <div style={styles.label}>{t.borderColor}</div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    type="color"
+                    value={borderColorValue}
+                    onChange={(e) => updateItem(selected.id, { borderColor: e.target.value, showBorder: true })}
+                    style={{ ...styles.color, flex: 1 }}
+                    disabled={selected.locked}
+                  />
+                  <button
+                    type="button"
+                    style={{
+                      ...styles.transparentBtn,
+                      ...(isBorderTransparent ? styles.transparentBtnActive : {}),
+                    }}
+                    onClick={() => updateItem(selected.id, { borderColor: 'transparent', showBorder: true })}
+                    disabled={selected.locked}
+                  >
+                    {t.transparent}
+                  </button>
+                </div>
               </div>
 
               {selected.type === 'text' && (
@@ -1136,12 +1159,25 @@ export default function CustomCanvas({
   }
 }
 
+function resolveBorderColor(item) {
+  return item?.borderColor ?? (item?.showBorder ? DEFAULT_BORDER_COLOR : 'transparent');
+}
+
+function normalizeColorInputValue(color) {
+  if (!color || color === 'transparent') return '#ffffff';
+  if (color.startsWith('#')) return color;
+  const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+  if (!match) return '#ffffff';
+  const toHex = (value) => Number(value).toString(16).padStart(2, '0');
+  return `#${toHex(match[1])}${toHex(match[2])}${toHex(match[3])}`;
+}
+
 function ItemBox({ item, selected }) {
-  const border = selected
-    ? styles.itemBoxSelected.border
-    : (item.showBorder ? styles.itemBox.border : '2px solid transparent');
+  const resolvedBorderColor = resolveBorderColor(item);
+  const border = selected ? styles.itemBoxSelected.border : `2px solid ${resolvedBorderColor}`;
   const base = {
     ...styles.itemBox,
+    ...(item.type === 'text' ? styles.textItemBox : null),
     ...(selected ? styles.itemBoxSelected : {}),
     opacity: item.opacity ?? 1,
     cursor: item.locked ? 'not-allowed' : 'move',
@@ -1289,6 +1325,8 @@ function getTexts(lang) {
     border: '테두리',
     borderOn: '켜짐',
     borderOff: '꺼짐',
+    borderColor: '테두리 색',
+    transparent: '투명',
 
     opacity: 'Opacity',
     text: 'Text',
@@ -1364,6 +1402,8 @@ function getTexts(lang) {
     border: 'Border',
     borderOn: 'On',
     borderOff: 'Off',
+    borderColor: 'Border color',
+    transparent: 'Transparent',
 
     opacity: 'Opacity',
     text: 'Text',
@@ -1511,9 +1551,13 @@ const styles = {
     height: '100%',
     outline: 'none',
     borderRadius: 12,
-    border: '2px solid rgba(255,255,255,0.22)',
+    border: `2px solid ${DEFAULT_BORDER_COLOR}`,
     background: 'rgba(0,0,0,0.08)',
     boxShadow: '0 10px 22px rgba(0,0,0,0.20)',
+  },
+  textItemBox: {
+    background: 'transparent',
+    boxShadow: 'none',
   },
   itemBoxSelected: {
     border: '2px solid rgba(255,255,255,0.85)',
@@ -1591,6 +1635,19 @@ const styles = {
     fontWeight: 800,
   },
   color: { width: '100%', height: 38, border: '1px solid #ddd', borderRadius: 12 },
+  transparentBtn: {
+    padding: '8px 10px',
+    borderRadius: 10,
+    border: '1px solid #ddd',
+    background: '#fff',
+    cursor: 'pointer',
+    fontWeight: 800,
+  },
+  transparentBtnActive: {
+    background: '#111',
+    color: '#fff',
+    borderColor: '#111',
+  },
 
   actions: {
     display: 'grid',
