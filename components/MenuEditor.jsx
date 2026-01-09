@@ -359,7 +359,7 @@ export default function MenuEditor() {
           }
           setBgOverrides(map);
         } catch {}
-      }
+      } catch {}
     })();
 
     // ✅ PIN 로드/초기화 (사용자별)
