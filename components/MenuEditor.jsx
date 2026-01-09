@@ -238,6 +238,7 @@ export default function MenuEditor() {
 
   const [dragOver, setDragOver] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [bgLoading, setBgLoading] = useState(true);
   const [assetUploading, setAssetUploading] = useState(false);
   const [assetUploadMessage, setAssetUploadMessage] = useState('');
 
@@ -359,7 +360,9 @@ export default function MenuEditor() {
           }
           setBgOverrides(map);
         } catch {}
-      } catch {}
+      } catch {} finally {
+        setBgLoading(false);
+      }
     })();
 
     // ✅ PIN 로드/초기화 (사용자별)
@@ -1612,7 +1615,9 @@ export default function MenuEditor() {
 
   return (
     <div style={styles.container}>
-      {loading ? null : !bgUrl ? (
+      {loading || bgLoading ? (
+        <div style={styles.loadingScreen} aria-label="loading-screen" />
+      ) : !bgUrl ? (
         <div style={styles.setupWrap}>
           <div style={styles.setupCard}>
             <div style={styles.title}>{T.pickBgTitle}</div>
@@ -2148,6 +2153,11 @@ function makeInitialTemplateData(fullId, lang) {
 
 const styles = {
   container: { width: '100%', height: '100vh', background: '#111' },
+  loadingScreen: {
+    width: '100%',
+    height: '100%',
+    background: '#111',
+  },
 
   setupWrap: {
     width: '100%',
