@@ -346,6 +346,8 @@ export default function MenuEditor() {
     (async () => {
       setBgLoading(true);
       setBgAssetsReady(false);
+      setBgBlob(null);
+      setBgOverrides({});
       try {
         const bg = await loadBlob(KEYS.MENU_BG);
         if (bg) setBgBlob(bg);
