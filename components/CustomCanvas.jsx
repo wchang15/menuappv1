@@ -20,7 +20,6 @@ const SHAPES = [
 
 const PRESET_KEY = 'MENU_CUSTOM_PRESETS_V1';
 const SNAP_THRESHOLD = 8;
-const INSPECTOR_AUTOHIDE_MS = 5000;
 const INSPECTOR_ENABLED = true;
 
 // ✅ 드래그 중 자동 스크롤
@@ -200,12 +199,6 @@ export default function CustomCanvas({
     setInspectorVisible(true);
     hideReasonRef.current = 'select';
     clearInspectorHideTimer();
-    hideTimerRef.current = setTimeout(() => {
-      if (hideReasonRef.current === 'select') {
-        setInspectorVisible(false);
-        setSelectedIds([]);
-      }
-    }, INSPECTOR_AUTOHIDE_MS);
   };
 
   const showInspectorByAdd = () => {
@@ -950,6 +943,17 @@ export default function CustomCanvas({
                 />
               </div>
 
+              <div style={styles.row}>
+                <div style={styles.label}>{t.border}</div>
+                <button
+                  style={toggleBtn(!!selected.showBorder)}
+                  onClick={() => updateItem(selected.id, { showBorder: !selected.showBorder })}
+                  disabled={selected.locked}
+                >
+                  {selected.showBorder ? t.borderOn : t.borderOff}
+                </button>
+              </div>
+
               {selected.type === 'text' && (
                 <>
                   <div style={styles.rowCol}>
@@ -1133,11 +1137,15 @@ export default function CustomCanvas({
 }
 
 function ItemBox({ item, selected }) {
+  const border = selected
+    ? styles.itemBoxSelected.border
+    : (item.showBorder ? styles.itemBox.border : '2px solid transparent');
   const base = {
     ...styles.itemBox,
     ...(selected ? styles.itemBoxSelected : {}),
     opacity: item.opacity ?? 1,
     cursor: item.locked ? 'not-allowed' : 'move',
+    border,
   };
 
   if (item.type === 'image') {
@@ -1278,6 +1286,10 @@ function getTexts(lang) {
     lockedOn: 'Locked',
     lockedOff: 'Unlocked',
 
+    border: '테두리',
+    borderOn: '켜짐',
+    borderOff: '꺼짐',
+
     opacity: 'Opacity',
     text: 'Text',
     font: 'Font',
@@ -1348,6 +1360,10 @@ function getTexts(lang) {
     locked: 'Locked',
     lockedOn: 'Locked',
     lockedOff: 'Unlocked',
+
+    border: 'Border',
+    borderOn: 'On',
+    borderOff: 'Off',
 
     opacity: 'Opacity',
     text: 'Text',
